@@ -1,31 +1,6 @@
 #ifndef VALUE_PTR__
 #define VALUE_PTR__
 
-/*
- * Q1. Should value_ptr be specialized to work with array types à la unique_ptr?
- * A1. No, in C/C++ an ANSI array is not a value, but a convenience.
- *
- * Q2. Should value_ptr take an allocator argument in addition to a cloner and
- *     a deleter? (Only the cloner would use the allocator.)
- * A2. Not if implementing A3, since then the cloner could store the allocator
- *     to use in its state and release the template from managing it.
- *
- * Q3. This implementation assumes that the cloner and deleter types are stateless;
- *     are these viable assumptions? If not, what policies should apply when they
- *     are being copied during a value_ptr copy?
- * A3. Not viable at all, seeing as the standard smart pointers already support
- *     stateful deleters at least.
- *     This was resolved similarly as to how glibc++ does for unique_ptr.
- *
- * Q4. With which, if any, standard smart pointers should this template innately
- *     interoperate, and to what degree?
- * A4. At the very least, it should be able to take its initial value from them.
- *
- * Q5. What color should the bicycle shed be painted?
- * A5. The color is fine.
- *
- */
-
 #include <type_traits>
 #include <functional>
 #include <cstddef>
@@ -177,7 +152,7 @@ struct default_clone {
    * method, we can't do without that.
    *
    */
-  static_assert(is_cloneable<T>::value, "default_clone requires a clone method");
+  static_assert(is_cloneable<T>::value, "default_clone requires a cloneable type");
 
   /**
    * Interaction boilerplate
@@ -246,7 +221,6 @@ struct default_replicate<T, true> : public default_clone<T> {
   template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> const &) noexcept {}
   template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> &&) noexcept {}
   virtual ~default_replicate() noexcept {};
-
 };
 
 /**
@@ -279,7 +253,6 @@ struct default_replicate<T, false> : public default_copy<T> {
   template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> const &) noexcept {}
   template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> &&) noexcept {}
   virtual ~default_replicate() noexcept {};
-
 };
 
 /**
@@ -337,7 +310,7 @@ class value_ptr {
      *
      */
     template <typename U, typename V = nullptr_t>
-    using enable_if_compatible = std::enable_if<std::is_same<U, nullptr_t>::value || std::is_convertible<typename std::add_pointer<U>::type, pointer_type>::value, V>;
+    using enable_if_compatible = std::enable_if<std::is_convertible<typename std::add_pointer<U>::type, pointer_type>::value, V>;
 
   public:
     /**
