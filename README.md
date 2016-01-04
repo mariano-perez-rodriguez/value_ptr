@@ -1,5 +1,32 @@
 # value_ptr
+
 A value semantics smart pointer for C++.
+
+## Quick Start
+
+In order to use this class you must simply do:
+
+````c++
+#include "value_ptr.hpp"
+````
+
+Now you can for example write:
+
+````c++
+value_ptr<std::string> string_vp = new std::string("Hello World!");
+````
+
+From this point on, `value_ptr` will care for the pointer given and will `delete` it when appropriate.
+
+If you want to control the replicator or deleter to use, you can do something like:
+
+````c++
+auto someClass_vp = value_ptr<someClass>(nullptr, default_copy<someClass>(), someDeleterObject);
+````
+
+Using the `value_ptr` is similar to using a `unique_ptr`, even the same names are used.
+
+* * *
 
 ## Index
 
