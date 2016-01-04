@@ -190,7 +190,7 @@ That's really all there is to it, but you're still very much recommended to go c
 Now for a method named `clone` to be a `clone` method it needs to satisfy the following (ideal) conditions:
 
 - it must be named `clone` (duh),
-- it mutt be `const`,
+- it must be `const`,
 - it must either have no parameters or provide default arguments for them all,
 - it must return a pointer to a type that is either that of the class in question or a base thereof,
 - the size of the pointed-to object returned must be the same as the size of the class in question,
