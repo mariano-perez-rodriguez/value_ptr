@@ -597,23 +597,94 @@ class value_ptr {
      */
     virtual ~value_ptr() noexcept { reset(); }
 
-    // ovservers
+    /**
+     * Get the pointed-to object
+     *
+     * @return the pointed-to object as a reference
+     */
     constexpr reference_type operator*() const { return *get(); }
+
+    /**
+     * Get the current pointer
+     *
+     * @return the pointer being held
+     */
     constexpr pointer_type operator->() const noexcept { return get(); }
+
+    /**
+     * Return the pointer part of the internal state
+     *
+     * @return the current pointer
+     */
     constexpr pointer_type get() const noexcept { return std::get<0>(c); }
+
+    /**
+     * Get a modifiable reference to the current replicator
+     *
+     * @return a reference to the current replicator
+     */
     replicator_reference get_replicator() noexcept { return std::get<1>(c); }
+
+    /**
+     * Get an unmodifiable reference to the current replicator
+     *
+     * @return a const reference to the current replicator
+     */
     constexpr replicator_const_reference get_replicator() const noexcept { return std::get<1>(c); }
+
+    /**
+     * Get a modifiable reference to the current deleter
+     *
+     * @return a reference to the current deleter
+     */
     deleter_reference get_deleter() noexcept { return std::get<2>(c); }
+
+    /**
+     * Get an unmodifiable reference to the current deleter
+     *
+     * @return a const reference to the current deleter
+     */
     constexpr deleter_const_reference get_deleter() const noexcept { return std::get<2>(c); }
 
-    // modifiers
+    /**
+     * Release ownership of the current pointer and reset it to nullptr
+     *
+     * @return the previously owned pointer
+     */
     pointer_type release() noexcept { pointer_type old = get(); std::get<0>(c) = nullptr; return old; }
-    void reset(pointer_type _p = pointer_type()) noexcept { if (_p != get()) { get_deleter()(get()); std::get<0>(c) = _p; } }
+
+    /**
+     * Reset the internal pointer to the given value (nullptr, by default)
+     *
+     * @param p  New value to acquire
+     */
+    void reset(pointer_type p = pointer_type()) noexcept { if (p != get()) { get_deleter()(get()); std::get<0>(c) = p; } }
+
+    /**
+     * Swap the internal state with a compatible value_ptr
+     *
+     * @param other  The value_ptr to swap values with
+     */
     template <typename T2, typename TRep2, typename TDel2>
     typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &other) noexcept { using std::swap; swap(c, other.c); }
 
   protected:
-    // internal constructor - only enabled if the pointer type is found to be compatible
+    /**
+     * Construct a new value_ptr with the given arguments and perform sanity checks
+     *
+     * The sanity checks performed are:
+     * - if the pointed-to type is polymorphic, the replicator cannot be a default_copy one,
+     * - if the replicator type is a pointer, it cannot be initialized with nullptr,
+     * - if the deleter type is a pointer, it cannot be initialized with nullptr,
+     * - if the replicator type is a reference, it cannot be initialized with a temporary,
+     * - if the deleter type is a reference, it cannot be initialized with a temporary.
+     *
+     *
+     * @param p  Pointer to take ownership of
+     * @param replicator  Replicator object to use
+     * @param deleter  Deleter object to use
+     * @param <unnamed>  nullptr_t parameter to use for disambiguation
+     */
     template <typename T2, typename TRep2, typename TDel2>
     constexpr value_ptr(T2 *p, TRep2&& replicator, TDel2&& deleter, typename enable_if_compatible<T2>::type) noexcept : c{p, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {
       static_assert(!std::is_polymorphic<T>::value || !std::is_same<TRep, default_replicate<T, false>>::value, "would slice when copying");
@@ -623,12 +694,19 @@ class value_ptr {
       static_assert(!std::is_reference<deleter_type>::value || !std::is_rvalue_reference<TDel2>::value, "rvalue replicator bound to reference");
     }
 
-    // tuple holding the data proper
+    /**
+     * Internal state, holding a pointer, a replicator and a deleter
+     *
+     */
     tuple_type c;
 };
 
-
-// swap overloads
+/**
+ * Swap function overloads for compatible value_ptrs
+ *
+ * @param x  First value_ptr to swap
+ * @param y  Second value_ptr to swap
+ */
 template <class T1, class R1, class D1, class T2, class R2, class D2>
 inline void swap(value_ptr<T1, R1, D1> &x, value_ptr<T2, R2, D2> &y) noexcept { x.swap(y); }
 template <class T1, class R1, class D1, class T2, class R2, class D2>
@@ -636,13 +714,31 @@ inline void swap(value_ptr<T1, R1, D1> &&x, value_ptr<T2, R2, D2> &y) noexcept {
 template <class T1, class R1, class D1, class T2, class R2, class D2>
 inline void swap(value_ptr<T1, R1, D1> &x, value_ptr<T2, R2, D2> &&y) noexcept { x.swap(std::move(y)); }
 
-// equality overloads
+/**
+ * Equality and difference operator overloads for arbitrary value_ptrs
+ *
+ * Equality is determined by pointer value.
+ *
+ *
+ * @param x  First value_ptr to compare
+ * @param y  Second value_ptr to compare
+ * @return the comparison result
+ */
 template <class T1, class R1, class D1, class T2, class R2, class D2>
 inline bool operator==(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return x.get() == y.get(); }
 template <class T1, class R1, class D1, class T2, class R2, class D2>
 inline bool operator!=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return !(x == y); }
 
-// nullptr equality overloads
+/**
+ * Equality and difference operator overloads for value_ptrs vs nullptr_t
+ *
+ * Equality is determined by pointer value.
+ *
+ *
+ * @param x  First value_ptr (nullptr_t) to compare
+ * @param y  Second nullptr_t (value_ptr) to compare
+ * @return the comparison result
+ */
 template <class T, class R, class D>
 inline bool operator==(value_ptr<T, R, D> const &x, nullptr_t y) { return x.get() == y; }
 template <class T, class R, class D>
@@ -652,7 +748,16 @@ inline bool operator==(nullptr_t x, value_ptr<T, R, D> const &y) { return x == y
 template <class T, class R, class D>
 inline bool operator!=(nullptr_t x, value_ptr<T, R, D> const &y) { return !(x == y); }
 
-// comparison overloads
+/**
+ * Comparison operators overloads for arbitrary value_ptrs
+ *
+ * Comparison is determined by pointer value.
+ *
+ *
+ * @param x  First value_ptr to compare
+ * @param y  Second value_ptr to compare
+ * @return the comparison result
+ */
 template <class T1, class R1, class D1, class T2, class R2, class D2>
 inline bool operator< (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
   using CT = typename std::common_type<typename value_ptr<T1, R1, D1>::pointer_type, typename value_ptr<T2, R2, D2>::pointer_type>::type;

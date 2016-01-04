@@ -916,10 +916,10 @@ Releasing ownership of the stored element and returning a pointer to it.
 This method is defined as:
 
 ````c++
-void reset(pointer_type _p = pointer_type()) noexcept {
-  if (_p != get()) {
+void reset(pointer_type p = pointer_type()) noexcept {
+  if (p != get()) {
     get_deleter()(get());
-    std::get<0>(c) = _p;
+    std::get<0>(c) = p;
   }
 }
 ````
@@ -1014,7 +1014,7 @@ Pointer comparison is achieved by:
 
 ````c++
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator< (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+inline bool operator<(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
   using CT = typename std::common_type<
                  typename value_ptr<T1, R1, D1>::pointer_type,
                  typename value_ptr<T2, R2, D2>::pointer_type
@@ -1022,7 +1022,7 @@ inline bool operator< (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> con
   return std::less<CT>()(x.get(), y.get());
 }
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator> (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+inline bool operator>(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
   return y < x;
 }
 template <class T1, class R1, class D1, class T2, class R2, class D2>
