@@ -15,7 +15,7 @@ A value semantics smart pointer for C++.
 - [The Code](#the-code)
   - [Supporting Definitions](#supporting-definitions)
     - [`condition`](#condition)
-    - [`is_cloneable`](#is-cloneable)
+    - [`is_cloneable`](#is_cloneable)
     - [`default_copy`](#default_copy)
     - [`default_clone`](#default_clone)
     - [`default_replicate`](#default_replicate)
