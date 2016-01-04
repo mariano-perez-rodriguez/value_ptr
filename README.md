@@ -510,11 +510,15 @@ The replicator and deleter ones are similar to each other:
 ````c++
 using replicator_type            = TRep;
 using replicator_reference       = typename std::add_lvalue_reference<replicator_type>::type;
-using replicator_const_reference = typename std::add_lvalue_reference<typename std::add_const<replicator_type>::type>::type;
+using replicator_const_reference = typename std::add_lvalue_reference<
+                                       typename std::add_const<replicator_type>::type
+                                   >::type;
 
 using deleter_type            = TDel;
 using deleter_reference       = typename std::add_lvalue_reference<deleter_type>::type;
-using deleter_const_reference = typename std::add_lvalue_reference<typename std::add_const<deleter_type>::type>::type;
+using deleter_const_reference = typename std::add_lvalue_reference<
+                                    typename std::add_const<deleter_type>::type
+                                >::type;
 ````
 
 Finally, some `protected` declarations are in place as well:
@@ -533,7 +537,13 @@ This one is used in the safe `bool` conversion operator.
 
 ````c++
 template <typename U, typename V = nullptr_t>
-using enable_if_compatible = std::enable_if<std::is_convertible<typename std::add_pointer<U>::type, pointer_type>::value, V>;
+using enable_if_compatible = std::enable_if<
+                                 std::is_convertible<
+                                     typename std::add_pointer<U>::type,
+                                     pointer_type
+                                 >::value,
+                                 V
+                             >;
 ````
 
 And this templated `using` specializes the `std::enable_if` trait to check for pointer compatibility.
@@ -555,12 +565,18 @@ The protected "master" constructor's code is:
 
 ````c++
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(T2 *p, TRep2&& replicator, TDel2&& deleter, typename enable_if_compatible<T2>::type) noexcept : c{p, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {
-  static_assert(!std::is_polymorphic<T>::value || !std::is_same<TRep, default_replicate<T, false>>::value, "would slice when copying");
-  static_assert(!std::is_pointer<replicator_type>::value || !std::is_same<TRep2, nullptr_t>::value, "constructed with null function pointer replicator");
-  static_assert(!std::is_pointer<deleter_type>::value || !std::is_same<TDel2, nullptr_t>::value, "constructed with null function pointer deleter");
-  static_assert(!std::is_reference<replicator_type>::value || !std::is_rvalue_reference<TRep2>::value, "rvalue replicator bound to reference");
-  static_assert(!std::is_reference<deleter_type>::value || !std::is_rvalue_reference<TDel2>::value, "rvalue replicator bound to reference");
+constexpr value_ptr(T2 *p, TRep2&& replicator, TDel2&& deleter, typename enable_if_compatible<T2>::type)
+    noexcept : c{p, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {
+  static_assert(!std::is_polymorphic<T>::value || !std::is_same<TRep, default_replicate<T, false>>::value,
+      "would slice when copying");
+  static_assert(!std::is_pointer<replicator_type>::value || !std::is_same<TRep2, nullptr_t>::value,
+      "constructed with null function pointer replicator");
+  static_assert(!std::is_pointer<deleter_type>::value || !std::is_same<TDel2, nullptr_t>::value,
+      "constructed with null function pointer deleter");
+  static_assert(!std::is_reference<replicator_type>::value || !std::is_rvalue_reference<TRep2>::value,
+      "rvalue replicator bound to reference");
+  static_assert(!std::is_reference<deleter_type>::value || !std::is_rvalue_reference<TDel2>::value,
+      "rvalue replicator bound to reference");
 }
 ````
 
@@ -594,9 +610,12 @@ We'll treat each in turn.
 The simplest of them all:
 
 ````c++
-constexpr value_ptr() noexcept : value_ptr{pointer_type(), replicator_type(), deleter_type(), nullptr} {}
-constexpr value_ptr(value_ptr const &other) noexcept : value_ptr{other.get_replicator()(other.get()), other.get_replicator(), other.get_deleter(), nullptr} {}
-constexpr value_ptr(value_ptr &&other) noexcept : value_ptr{other.release(), std::move(other.get_replicator()), std::move(other.get_deleter()), nullptr} {}
+constexpr value_ptr() noexcept :
+    value_ptr{pointer_type(), replicator_type(), deleter_type(), nullptr} {}
+constexpr value_ptr(value_ptr const &other) noexcept :
+    value_ptr{other.get_replicator()(other.get()), other.get_replicator(), other.get_deleter(), nullptr} {}
+constexpr value_ptr(value_ptr &&other) noexcept :
+    value_ptr{other.release(), std::move(other.get_replicator()), std::move(other.get_deleter()), nullptr} {}
 ````
 
 They simply provide defaults and delegate to the "master" constructor.
@@ -607,9 +626,11 @@ These are similar to the ones above:
 
 ````c++
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(value_ptr<T2, TRep2, TDel2> const &other) noexcept : value_ptr{other.get_replicator()(other.get()), other.get_replicator(), other.get_deleter(), nullptr} {}
+constexpr value_ptr(value_ptr<T2, TRep2, TDel2> const &other) noexcept :
+    value_ptr{other.get_replicator()(other.get()), other.get_replicator(), other.get_deleter(), nullptr} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(value_ptr<T2, TRep2, TDel2> &&other) noexcept : value_ptr{other.release(), std::move(other.get_replicator()), std::move(other.get_deleter()), nullptr} {}
+constexpr value_ptr(value_ptr<T2, TRep2, TDel2> &&other) noexcept :
+    value_ptr{other.release(), std::move(other.get_replicator()), std::move(other.get_deleter()), nullptr} {}
 ````
 
 These allow the interoperability of compatible `value_ptr`s.
@@ -620,11 +641,14 @@ These are rather basic:
 
 ````c++
 template <typename T2>
-constexpr value_ptr(T2 *p) noexcept : value_ptr{p, replicator_type(), deleter_type(), nullptr} {}
+constexpr value_ptr(T2 *p) noexcept :
+    value_ptr{p, replicator_type(), deleter_type(), nullptr} {}
 template <typename T2, typename TRep2>
-constexpr value_ptr(T2 *p, TRep2&& replicator) noexcept : value_ptr{p, std::forward<TRep2>(replicator), deleter_type(), nullptr} {}
+constexpr value_ptr(T2 *p, TRep2&& replicator) noexcept :
+    value_ptr{p, std::forward<TRep2>(replicator), deleter_type(), nullptr} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(T2 *p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{p, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter), nullptr} {}
+constexpr value_ptr(T2 *p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{p, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter), nullptr} {}
 ````
 
 They simply acquire ownership of the given pointer (which must be compatible) and, optionally, set the replicator and deleter.
@@ -634,11 +658,14 @@ They simply acquire ownership of the given pointer (which must be compatible) an
 Similar to the above ones are:
 
 ````c++
-constexpr value_ptr(nullptr_t) noexcept : value_ptr{nullptr, replicator_type(), deleter_type(), nullptr} {}
+constexpr value_ptr(nullptr_t) noexcept :
+    value_ptr{nullptr, replicator_type(), deleter_type(), nullptr} {}
 template <typename TRep2>
-constexpr value_ptr(nullptr_t, TRep2&& replicator) noexcept : value_ptr{nullptr, std::forward<TRep2>(replicator), deleter_type(), nullptr} {}
+constexpr value_ptr(nullptr_t, TRep2&& replicator) noexcept :
+    value_ptr{nullptr, std::forward<TRep2>(replicator), deleter_type(), nullptr} {}
 template <typename TRep2, typename TDel2>
-constexpr value_ptr(nullptr_t, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{nullptr, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter), nullptr} {}
+constexpr value_ptr(nullptr_t, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{nullptr, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter), nullptr} {}
 ````
 
 These are in place to allow initialization fron a `nullptr`.
@@ -651,11 +678,14 @@ The copy constructors are:
 
 ````c++
 template <typename T2>
-constexpr value_ptr(std::auto_ptr<T2> const &p) noexcept : value_ptr{replicator_type()(p.get())} {}
+constexpr value_ptr(std::auto_ptr<T2> const &p) noexcept :
+    value_ptr{replicator_type()(p.get())} {}
 template <typename T2, typename TRep2>
-constexpr value_ptr(std::auto_ptr<T2> const &p, TRep2&& replicator) noexcept : value_ptr{replicator(p.get()), std::forward<TRep2>(replicator)} {}
+constexpr value_ptr(std::auto_ptr<T2> const &p, TRep2&& replicator) noexcept :
+    value_ptr{replicator(p.get()), std::forward<TRep2>(replicator)} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::auto_ptr<T2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
+constexpr value_ptr(std::auto_ptr<T2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
 ````
 
 And they simply delegate to the ownership taking ones after replicating .
@@ -664,11 +694,14 @@ The move constructors are:
 
 ````c++
 template <typename T2>
-constexpr value_ptr(std::auto_ptr<T2> &&p) noexcept : value_ptr{p.release()} {}
+constexpr value_ptr(std::auto_ptr<T2> &&p) noexcept :
+    value_ptr{p.release()} {}
 template <typename T2, typename TRep2>
-constexpr value_ptr(std::auto_ptr<T2> &&p, TRep2&& replicator) noexcept : value_ptr{p.release(), std::forward<TRep2>(replicator)} {}
+constexpr value_ptr(std::auto_ptr<T2> &&p, TRep2&& replicator) noexcept :
+    value_ptr{p.release(), std::forward<TRep2>(replicator)} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::auto_ptr<T2> &&p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{p.release(), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
+constexpr value_ptr(std::auto_ptr<T2> &&p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{p.release(), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
 ````
 
 And they simply delegate to the ownership taking ones after `release`ing.
@@ -681,22 +714,28 @@ The copy constructors are:
 
 ````c++
 template <typename T2, typename TDel2>
-constexpr value_ptr(std::unique_ptr<T2, TDel2> const &p) noexcept : value_ptr{replicator_type()(p.get()), replicator_type(), std::forward<TDel2>(p.get_deleter())} {}
+constexpr value_ptr(std::unique_ptr<T2, TDel2> const &p) noexcept :
+    value_ptr{replicator_type()(p.get()), replicator_type(), std::forward<TDel2>(p.get_deleter())} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::unique_ptr<T2, TDel2> const &p, TRep2&& replicator) noexcept : value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(p.get_deleter())} {}
+constexpr value_ptr(std::unique_ptr<T2, TDel2> const &p, TRep2&& replicator) noexcept :
+    value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(p.get_deleter())} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::unique_ptr<T2, TDel2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
+constexpr value_ptr(std::unique_ptr<T2, TDel2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
 ````
 
 And the move constructors are:
 
 ````c++
 template <typename T2, typename TDel2>
-constexpr value_ptr(std::unique_ptr<T2, TDel2> &&p) noexcept : value_ptr{p.release(), replicator_type(), std::forward<TDel2>(p.get_deleter())} {}
+constexpr value_ptr(std::unique_ptr<T2, TDel2> &&p) noexcept :
+    value_ptr{p.release(), replicator_type(), std::forward<TDel2>(p.get_deleter())} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::unique_ptr<T2, TDel2> &&p, TRep2&& replicator) noexcept : value_ptr{p.release(), std::forward<TRep2>(replicator), std::forward<TDel2>(p.get_deleter())} {}
+constexpr value_ptr(std::unique_ptr<T2, TDel2> &&p, TRep2&& replicator) noexcept :
+    value_ptr{p.release(), std::forward<TRep2>(replicator), std::forward<TDel2>(p.get_deleter())} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::unique_ptr<T2, TDel2> &&p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{p.release(), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
+constexpr value_ptr(std::unique_ptr<T2, TDel2> &&p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{p.release(), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
 ````
 
 ##### `shared_ptr` Constructors
@@ -705,11 +744,14 @@ Support for `shared_ptr`s is only provided in the form of copy constructors:
 
 ````c++
 template <typename T2>
-constexpr value_ptr(std::shared_ptr<T2> const &p) noexcept : value_ptr{replicator_type()(p.get()), replicator_type(), std::get_deleter(p)} {}
+constexpr value_ptr(std::shared_ptr<T2> const &p) noexcept :
+    value_ptr{replicator_type()(p.get()), replicator_type(), std::get_deleter(p)} {}
 template <typename T2, typename TRep2>
-constexpr value_ptr(std::shared_ptr<T2> const &p, TRep2&& replicator) noexcept : value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::get_deleter(p)} {}
+constexpr value_ptr(std::shared_ptr<T2> const &p, TRep2&& replicator) noexcept :
+    value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::get_deleter(p)} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::shared_ptr<T2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
+constexpr value_ptr(std::shared_ptr<T2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{replicator(p.get()), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
 ````
 
 This is because in order to exploit a moving `shared_ptr`, we should first ensure that it is a `unique` one, if not, we can only copy it, but even if it is, having `shared_ptr` release its hold on the managed pointer is folly.
@@ -720,11 +762,14 @@ Similarly, support for `weak_ptr` is only provided in the form of copy construct
 
 ````c++
 template <typename T2>
-constexpr value_ptr(std::weak_ptr<T2> const &p) noexcept : value_ptr{p.lock()} {}
+constexpr value_ptr(std::weak_ptr<T2> const &p) noexcept :
+    value_ptr{p.lock()} {}
 template <typename T2, typename TRep2>
-constexpr value_ptr(std::weak_ptr<T2> const &p, TRep2&& replicator) noexcept : value_ptr{p.lock(), std::forward<TRep2>(replicator)} {}
+constexpr value_ptr(std::weak_ptr<T2> const &p, TRep2&& replicator) noexcept :
+    value_ptr{p.lock(), std::forward<TRep2>(replicator)} {}
 template <typename T2, typename TRep2, typename TDel2>
-constexpr value_ptr(std::weak_ptr<T2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept : value_ptr{p.lock(), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
+constexpr value_ptr(std::weak_ptr<T2> const &p, TRep2&& replicator, TDel2&& deleter) noexcept :
+    value_ptr{p.lock(), std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {}
 ````
 
 These simply `lock()` the `weak_ptr` into a temporary and delegate to the `shared_ptr` constructors above.
@@ -764,9 +809,15 @@ Trivial.
 
 ````c++
 template <typename T2, typename TRep2, typename TDel2>
-typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, TRep2, TDel2> other) { swap(other); return *this; }
+typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, TRep2, TDel2> other) {
+  swap(other);
+  return *this;
+}
 template <typename T2, typename TRep2, typename TDel2>
-typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, TRep2, TDel2> &&other) { swap(std::move(other)); return *this; }
+typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, TRep2, TDel2> &&other) {
+  swap(std::move(other));
+  return *this;
+}
 ````
 
 #### Safe `bool` Conversion
@@ -774,7 +825,9 @@ typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, TRe
 The safe `bool` conversion operator is defined as:
 
 ````c++
-constexpr operator __unspecified_bool_type() const noexcept { return nullptr == get() ? nullptr : &value_ptr::c; }
+constexpr operator __unspecified_bool_type() const noexcept {
+  return nullptr == get() ? nullptr : &value_ptr::c;
+}
 ````
 
 Where `__unspecified_bool_type` is as defined above.
@@ -849,7 +902,11 @@ We'll treat each in turn.
 This method is defined as:
 
 ````c++
-pointer_type release() noexcept { pointer_type old = get(); std::get<0>(c) = nullptr; return old; }
+pointer_type release() noexcept {
+  pointer_type old = get();
+  std::get<0>(c) = nullptr;
+  return old;
+}
 ````
 
 Releasing ownership of the stored element and returning a pointer to it.
@@ -859,7 +916,12 @@ Releasing ownership of the stored element and returning a pointer to it.
 This method is defined as:
 
 ````c++
-void reset(pointer_type _p = pointer_type()) noexcept { if (_p != get()) { get_deleter()(get()); std::get<0>(c) = _p; } }
+void reset(pointer_type _p = pointer_type()) noexcept {
+  if (_p != get()) {
+    get_deleter()(get());
+    std::get<0>(c) = _p;
+  }
+}
 ````
 
 Resetting the managed pointer to the one given (`nullptr` by default).
@@ -870,7 +932,10 @@ This templated method is defined as:
 
 ````c++
 template <typename T2, typename TRep2, typename TDel2>
-typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &other) noexcept { using std::swap; swap(c, other.c); }
+typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &other) noexcept {
+  using std::swap;
+  swap(c, other.c);
+}
 ````
 
 Which basically swaps compatible `value_ptr`s.
@@ -886,11 +951,17 @@ Overloads of the `swap` function are defined as:
 
 ````c++
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline void swap(value_ptr<T1, R1, D1> &x, value_ptr<T2, R2, D2> &y) noexcept { x.swap(y); }
+inline void swap(value_ptr<T1, R1, D1> &x, value_ptr<T2, R2, D2> &y) noexcept {
+  x.swap(y);
+}
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline void swap(value_ptr<T1, R1, D1> &&x, value_ptr<T2, R2, D2> &y) noexcept { y.swap(std::move(x)); }
+inline void swap(value_ptr<T1, R1, D1> &&x, value_ptr<T2, R2, D2> &y) noexcept {
+  y.swap(std::move(x));
+}
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline void swap(value_ptr<T1, R1, D1> &x, value_ptr<T2, R2, D2> &&y) noexcept { x.swap(std::move(y)); }
+inline void swap(value_ptr<T1, R1, D1> &x, value_ptr<T2, R2, D2> &&y) noexcept {
+  x.swap(std::move(y));
+}
 ````
 
 Which simply call the class' swap method.
@@ -901,9 +972,13 @@ Pointer-equality is realized by:
 
 ````c++
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator==(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return x.get() == y.get(); }
+inline bool operator==(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+  return x.get() == y.get();
+}
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator!=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return !(x == y); }
+inline bool operator!=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+  return !(x == y);
+}
 ````
 
 Comparing pointer _values_ rather than content.
@@ -914,13 +989,21 @@ The following are specializations of the overloads given above for the `nullptr_
 
 ````c++
 template <class T, class R, class D>
-inline bool operator==(value_ptr<T, R, D> const &x, nullptr_t y) { return x.get() == y; }
+inline bool operator==(value_ptr<T, R, D> const &x, nullptr_t y) {
+  return x.get() == y;
+}
 template <class T, class R, class D>
-inline bool operator!=(value_ptr<T, R, D> const &x, nullptr_t y) { return !(x == y); }
+inline bool operator!=(value_ptr<T, R, D> const &x, nullptr_t y) {
+  return !(x == y);
+}
 template <class T, class R, class D>
-inline bool operator==(nullptr_t x, value_ptr<T, R, D> const &y) { return x == y.get(); }
+inline bool operator==(nullptr_t x, value_ptr<T, R, D> const &y) {
+  return x == y.get();
+}
 template <class T, class R, class D>
-inline bool operator!=(nullptr_t x, value_ptr<T, R, D> const &y) { return !(x == y); }
+inline bool operator!=(nullptr_t x, value_ptr<T, R, D> const &y) {
+  return !(x == y);
+}
 ````
 
 Both comparing left and right.
@@ -932,15 +1015,24 @@ Pointer comparison is achieved by:
 ````c++
 template <class T1, class R1, class D1, class T2, class R2, class D2>
 inline bool operator< (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
-  using CT = typename std::common_type<typename value_ptr<T1, R1, D1>::pointer_type, typename value_ptr<T2, R2, D2>::pointer_type>::type;
+  using CT = typename std::common_type<
+                 typename value_ptr<T1, R1, D1>::pointer_type,
+                 typename value_ptr<T2, R2, D2>::pointer_type
+             >::type;
   return std::less<CT>()(x.get(), y.get());
 }
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator> (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return y < x; }
+inline bool operator> (value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+  return y < x;
+}
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator<=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return !(y < x); }
+inline bool operator<=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+  return !(y < x);
+}
 template <class T1, class R1, class D1, class T2, class R2, class D2>
-inline bool operator>=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) { return !(x < y); }
+inline bool operator>=(value_ptr<T1, R1, D1> const &x, value_ptr<T2, R2, D2> const &y) {
+  return !(x < y);
+}
 ````
 
 Note the conversion to a common type in `operator<`.
