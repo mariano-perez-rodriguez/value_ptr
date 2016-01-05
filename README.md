@@ -39,6 +39,7 @@ Using the `value_ptr` is similar to using a `unique_ptr`, even the same names ar
     - [This implementation assumes that the `replicator` and `deleter` types are stateless; are these viable assumptions? If not, what policies should apply when they are being copied during a `value_ptr` copy?](#this-implementation-assumes-that-the-replicator-and-deleter-types-are-stateless-are-these-viable-assumptions-if-not-what-policies-should-apply-when-they-are-being-copied-during-a-value_ptr-copy)
     - [With which, if any, standard smart pointers should this template innately interoperate, and to what degree?](#with-which-if-any-standard-smart-pointers-should-this-template-innately-interoperate-and-to-what-degree)
     - [What color should the bicycle shed be painted?](#what-color-should-the-bicycle-shed-be-painted)
+  - [Limitations](#limitations)
 - [The Code](#the-code)
   - [Supporting Definitions](#supporting-definitions)
     - [`condition`](#condition)
@@ -132,6 +133,13 @@ These are the only cases in which they interoperate as of now.
 #### What color should the bicycle shed be painted?
 
 Most obviously, the color is fine.
+
+### Limitations
+
+As it stands today, `value_ptr` can only deal with non-array types.
+If you need "aray-like" support, you may use `std::vector` or `std::array` with `value_ptr`.
+
+In the future, we may provide a `T[]` specialization for `value_ptr`, but doing so will most likely imply some sort of ABI dependence.
 
 ## The Code
 
