@@ -111,8 +111,8 @@ On the one hand, arrays are not _values_ themselves in ANSI C / ISO C++, but rat
 
 On the other hand, this would be extremely useful.
 
-The only drawback is that in order to properly clone an array, we must somehow know its size given just a pointer to it, and this can only be done in an ABI dependent manner, and, even then, not fort every possible type.
-In the future, we may provide `T[]` specializations, but these will certainly be ABI dependent and fragile.
+The only drawback is that in order to properly clone an array, we must somehow know its size given just a pointer to it, and this can only be done in an ABI dependent manner, and, even then, not for every possible type.
+In the future, we may provide `T[N]` and `T*` specializations, but these will certainly be ABI dependent and fragile.
 
 #### Should `value_ptr` take an `allocator` argument in addition to a `replicator` and a `deleter`?
 
@@ -139,7 +139,7 @@ Most obviously, the color is fine.
 As it stands today, `value_ptr` can only deal with non-array types.
 If you need "aray-like" support, you may use `std::vector` or `std::array` with `value_ptr`.
 
-In the future, we may provide a `T[]` specialization for `value_ptr`, but doing so will most likely imply some sort of ABI dependence.
+In the future, we may provide a `T[N]` and `T*` specialization for `value_ptr`, but doing so will most likely imply some sort of ABI dependence.
 
 ## The Code
 
