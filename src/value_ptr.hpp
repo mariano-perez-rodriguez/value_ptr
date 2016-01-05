@@ -10,35 +10,106 @@
 #include <tuple>
 #include <new>
 
+
+/**
+ * Generic ABI error exception class
+ *
+ */
+class abi_error : public std::logic_error { public: using std::logic_error::logic_error; };
+
+/**
+ * Exception to be thrown on trivial destructor array types
+ *
+ */
+class ambiguous_array_type : public abi_error { public: using abi_error::abi_error; };
+
+/**
+ * Static class to encapsulate ABI dependent operations
+ *
+ */
 class Abi {
   public:
-    // return the size of the array padding needed
-    template <typename T> static constexpr std::size_t arrayPadding() noexcept;
-    // return the size of the pointed-to array
+    /**
+     * Return the size of the array cookie needed
+     *
+     * @param T  Underlying type of the array
+     * @return the size of the array cookie needed
+     */
+    template <typename T> static constexpr std::size_t arrayCookieLen() noexcept;
+
+    /**
+     * Return the size of the pointed-to array
+     *
+     * @param T  Underlying type of the array
+     * @param p  Pointer to the array proper
+     * @return the size of the pointed-to array
+     * @throws abi_error  In case the size cannot be determined
+     */
     template <typename T> static std::size_t arraySize(T const *p);
-    // Return a new array with cookie set
+
+    /**
+     * Return a new array, including cookie if needed, but do NOT call constructors
+     *
+     * @param T  Underlying type of the array
+     * @param n  Number of elements in the allocated array
+     * @return a pointer to the allocated array
+     * @throws std::bad_alloc  In case the underlying operation throws
+     */
     template <typename T> static T *newArray(std::size_t n);
-    // Delete a newArray including cookie
-    template <typename T> static void delArray(T const *p);
+
+    /**
+     * Delete an array created by newArray<T>, including cookie if needed, but do NOT call destructors
+     *
+     * @param T  Underlying type of the array
+     * @param p  Pointer to the array proper
+     */
+    template <typename T> static void delArray(T const *p) noexcept;
 };
 
+/**
+ * Static class to encapsulate Itanium ABI operations
+ *
+ */
 class Itanium : public Abi {
   public:
-    // return the size of the array padding needed (Itanium ABI)
+    /**
+     * Return the size of the array cookie needed
+     *
+     * @param T  Underlying type of the array
+     * @return the size of the array cookie needed
+     */
     template <typename T>
-    static constexpr std::size_t arrayPadding() noexcept override {
+    static constexpr std::size_t arrayCookieLen() noexcept override {
       return __has_trivial_destructor(T) ? 0 : std::max(sizeof(std::size_t), alignof(T));
     }
 
-    // return the size of the pointed-to array (Itanium ABI)
+    /**
+     * Return the size of the pointed-to array
+     *
+     * @param T  Underlying type of the array
+     * @param p  Pointer to the array proper
+     * @return the size of the pointed-to array
+     * @throws abi_error  In case the size cannot be determined
+     */
     template <typename T>
-    static std::size_t arraySize(T const *p) override {
-      return arrayPadding<T>() ? reinterpret_cast<std::size_t const *>(p)[-1] : 0;
+    static std::size_t arraySize(T const *p) noexcept(!__has_trivial_destructor(T)) override {
+      if (__has_trivial_destructor(T)) {
+        throw new ambiguous_array_type("Array type has trivial destructor");
+      }
+      return reinterpret_cast<std::size_t const *>(p)[-1];
     }
-    // Return a new array with cookie set (Itanium ABI)
+
+    /**
+     * Return a new array, including cookie if needed, but do NOT call constructors
+     *
+     * @param T  Underlying type of the array
+     * @param n  Number of elements in the allocated array
+     * @return a pointer to the allocated array
+     * @throws std::bad_alloc  In case the underlying operation throws
+     */
     template <typename T>
     static T *newArray(std::size_t n) override {
-      std::size_t padding = arrayPadding<T>();
+      std::size_t padding = arrayCookieLen<T>();
       T *ret = reinterpret_cast<T *>(new char[n * sizeof(T) + padding] + padding);
 
       if (padding) {
@@ -47,10 +118,16 @@ class Itanium : public Abi {
 
       return ret;
     }
-    // Delete a newArray including cookie (Itanium ABI)
+
+    /**
+     * Delete an array created by newArray<T>, including cookie if needed, but do NOT call destructors
+     *
+     * @param T  Underlying type of the array
+     * @param p  Pointer to the array proper
+     */
     template <typename T>
-    static void delArray(T const *p) override {
-      delete[] reinterpret_cast<char const *>(p - arrayPadding<T>());
+    static void delArray(T const *p) noexcept override {
+      delete[] reinterpret_cast<char const *>(p - arrayCookieLen<T>());
     }
 };
 
@@ -61,6 +138,97 @@ class Itanium : public Abi {
  */
 template <bool C>
 using condition = std::conditional<C, std::true_type, std::false_type>;
+
+/**
+ * Metaprogramming class to detect the presence of a (possibly inherited) "placement clone" method (possibly utilizing covariant return types)
+ *
+ * A "placement clone" method is a (virtual) method of a (polymorphic) class
+ * that takes a single "void *" parameter, is itself const, and returns a
+ * pointer to (a base class of) T.
+ *
+ * Adapted from: http://stackoverflow.com/a/10707822
+ *
+ * @param T  Class to check for
+ * @var bool value  True if T has a placement clone method, false otherwise
+ */
+template <typename T>
+struct is_placement_cloneable {
+  protected:
+    /**
+     * Default case
+     *
+     * Always succeeds (note the "..." in the argument specification), resolves
+     * to false (std::false_type).
+     *
+     * @param <unnamed>  Ignored
+     */
+    template <typename>
+    static constexpr auto test(...) -> std::false_type;
+
+    /**
+     * Test for the existence of the "clone" method
+     *
+     * This metamethod will only be defined when decltype(&S::clone) succeeds,
+     * which will only happen when S has a method named "clone" itself.
+     *
+     * It will also try to resolve "decltype(test(&S::clone, nullptr))", since
+     * this appears to be its return type; this in turn triggers the signature
+     * recognition metamethod below.
+     *
+     * Note that this method will have the same return type as the metamethod
+     * below, if substitution succeeds, or the same as the one above, if
+     * substitution fails.
+     *
+     * @param S  Base class under which to look for a "clone" method
+     */
+    template <typename S>
+    static constexpr auto test(decltype(&S::clone))
+      -> decltype(test(&S::clone, nullptr));
+
+    /**
+     * Test for the correct signature for "clone"
+     *
+     * This metamethod will check that the "clone" method identified above has
+     * the required signature. Note the R parameter: this is added in order to
+     * allow for covariant return types in the resolved method (this is later
+     * checked for in the metamethod's return type, along with a check for size
+     * equality: this prevents us from falsely treating an inherited "clone"
+     * method as valid if the class that defines it has a different size than
+     * the one we're looking for). The parameter pack U is added in order to
+     * detect "clone" methods accepting optional arguments, this is later
+     * checked in the condition.
+     *
+     * @param S  Base class under which to look for a "clone" method
+     * @param R  Type of object the "clone" method returns a pointer to
+     */
+    template <typename S, typename R, typename ...U>
+    static constexpr auto test(R *(S::*)(void *, U...) const, nullptr_t)
+      -> typename condition<
+        sizeof(R) == sizeof(S) &&
+        std::is_base_of<R, S>::value &&
+        std::is_same<R *, decltype(std::declval<S>().clone(nullptr))>::value
+      >::type;
+
+  public:
+    /**
+     * A class will be placement cloneable if it is a polymorphic one and it
+     * contains a suitably defined "clone" method.
+     *
+     */
+    static constexpr bool value = std::is_polymorphic<T>::value && decltype(test<T>(nullptr))::value;
+};
+
+/**
+ * Specialization of is_placement_cloneable for array types
+ *
+ * An array type is never considered placement clonable, since it cannot
+ * itself have a "placement clone" method.
+ *
+ */
+template <typename T>
+struct is_placement_cloneable<T[]> {
+  static constexpr bool value = false;
+};
 
 /**
  * Metaprogramming class to detect the presence of a (possibly inherited) "clone" method (possibly utilizing covariant return types)
@@ -141,30 +309,13 @@ struct is_cloneable {
     static constexpr bool value = std::is_polymorphic<T>::value && decltype(test<T>(nullptr))::value;
 };
 
-// needed for specialization
-template <typename T>
-struct is_placement_cloneable {
-  protected:
-    template <typename>
-    static constexpr auto test(...) -> std::false_type;
-
-    template <typename S>
-    static constexpr auto test(decltype(&S::clone))
-      -> decltype(test(&S::clone, nullptr));
-
-    template <typename S, typename R, typename ...U>
-    static constexpr auto test(R *(S::*)(void *, U...) const, nullptr_t)
-      -> typename condition<
-        sizeof(R) == sizeof(S) &&
-        std::is_base_of<R, S>::value &&
-        std::is_same<R *, decltype(std::declval<S>().clone(nullptr))>::value
-      >::type;
-
-  public:
-    static constexpr bool value = std::is_polymorphic<T>::value && decltype(test<T>(nullptr))::value;
-};
-
-// specialization for arrays
+/**
+ * Specialization of is_clonable for array types
+ *
+ * An array type is considered cloneable itself if its constituent type is
+ * placement cloneable.
+ *
+ */
 template <typename T>
 struct is_cloneable<T[]> {
   static constexpr bool value = is_placement_cloneable<T>::value;
@@ -197,8 +348,8 @@ struct default_copy {
   default_copy() noexcept {}
   template <typename U> default_copy(default_copy<U> const &) noexcept {}
   template <typename U> default_copy(default_copy<U> &&) noexcept {}
-  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept {}
-  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept {}
+  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept { return *this; }
+  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept { return *this; }
   virtual ~default_copy() noexcept {};
 
   /**
@@ -214,24 +365,52 @@ struct default_copy {
   T *operator()(T const *p) const { return nullptr != p ? new T{*p} : nullptr; }
 };
 
-// specialization for arrays (Itanium ABI)
+/**
+ * Specialization of default_copy for array types
+ *
+ */
 template <typename T, typename ABI>
 struct default_copy<T[], ABI> {
+  /**
+   * Refuse to accept types which we do not know how to copy
+   *
+   * Since this replicator implicitly uses the underlying type's copy
+   * constructor, we can't do without that.
+   *
+   */
   static_assert(std::is_copy_constructible<T>::value, "default_copy requires a copy constructor");
 
+  /**
+   * Interaction boilerplate
+   *
+   * This battery of definitions are in place so that objects may be copied,
+   * moved, initialized, and assigned arbitrarily. Note that this is not a big
+   * deal, since this structure itself has no members.
+   *
+   */
   default_copy() noexcept {}
   template <typename U> default_copy(default_copy<U> const &) noexcept {}
   template <typename U> default_copy(default_copy<U> &&) noexcept {}
-  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept {}
-  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept {}
+  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept { return *this; }
+  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept { return *this; }
   virtual ~default_copy() noexcept {};
 
+  /**
+   * Replication implementation
+   *
+   * The "operator()" in this class returns a new array of objects of the
+   * underlying class by performing a placement new using its copy constructor
+   * on each given object, it returns nullptr if a nullptr is given.
+   *
+   * @param p  Pointer to the array to copy
+   * @return either nullptr if nullptr is given, or a new array copied from p
+   */
   T *operator()(T const *p) const {
     if (nullptr == p) {
       return nullptr;
     }
 
-    std::size_t i, n = reinterpret_cast<std::size_t const *>(p)[-1];
+    std::size_t i, n = ABI::template arraySize<T>(p);
     T *ret = ABI::template newArray<T>(n);
 
     try {
@@ -281,8 +460,8 @@ struct default_clone {
   default_clone() noexcept {}
   template <typename U> default_clone(default_clone<U> const &) noexcept {}
   template <typename U> default_clone(default_clone<U> &&) noexcept {}
-  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept {}
-  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept {}
+  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept { return *this; }
+  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept { return *this; }
   virtual ~default_clone() noexcept {};
 
   /**
@@ -298,25 +477,52 @@ struct default_clone {
   T *operator()(T const *p) const { return nullptr != p ? p->clone() : nullptr; }
 };
 
-// specialization for arrays (Itanium ABI)
+/**
+ * Specialization of default_clone for array types
+ *
+ */
 template <typename T, typename ABI>
 struct default_clone<T[], ABI> {
+  /**
+   * Refuse to accept types which we do not know how to placement clone
+   *
+   * Since this replicator implicitly uses the underlying type's
+   * "placement clone" method, we can't do without that.
+   *
+   */
   static_assert(is_placement_cloneable<T>::value, "default_clone requires a placement-cloneable type");
-  static_assert(!__has_trivial_destructor(T), "default_clone requires a non-trivial destructor for arrays");
 
+  /**
+   * Interaction boilerplate
+   *
+   * This battery of definitions are in place so that objects may be copied,
+   * moved, initialized, and assigned arbitrarily. Note that this is not a big
+   * deal, since this structure itself has no members.
+   *
+   */
   default_clone() noexcept {}
   template <typename U> default_clone(default_clone<U> const &) noexcept {}
   template <typename U> default_clone(default_clone<U> &&) noexcept {}
-  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept {}
-  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept {}
+  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept { return *this; }
+  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept { return *this; }
   virtual ~default_clone() noexcept {};
 
+  /**
+   * Replication implementation
+   *
+   * The "operator()" in this class returns a new array of objects of the
+   * underlying class by performing a placement clone on each given object, it
+   * returns nullptr if a nullptr is given.
+   *
+   * @param p  Pointer to the array to copy
+   * @return either nullptr if nullptr is given, or a new array cloned from p
+   */
   T *operator()(T const *p) const {
     if (nullptr == p) {
       return nullptr;
     }
 
-    std::size_t i, n = reinterpret_cast<std::size_t const *>(p)[-1];
+    std::size_t i, n = ABI::template arraySize<T>(p);
     T *ret = ABI::template newArray<T>(n);
 
     try {
@@ -375,8 +581,8 @@ struct default_replicate<T, true> : public default_clone<T> {
   default_replicate() noexcept {}
   template <typename U, bool V> default_replicate(default_replicate<U, V> const &) noexcept {}
   template <typename U, bool V> default_replicate(default_replicate<U, V> &&) noexcept {}
-  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> const &) noexcept {}
-  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> &&) noexcept {}
+  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> const &) noexcept { return *this; }
+  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> &&) noexcept { return *this; }
   virtual ~default_replicate() noexcept {};
 };
 
@@ -407,8 +613,8 @@ struct default_replicate<T, false> : public default_copy<T> {
   default_replicate() noexcept {}
   template <typename U, bool V> default_replicate(default_replicate<U, V> const &) noexcept {}
   template <typename U, bool V> default_replicate(default_replicate<U, V> &&) noexcept {}
-  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> const &) noexcept {}
-  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> &&) noexcept {}
+  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> const &) noexcept { return *this; }
+  template <typename U, bool V> default_replicate &operator=(default_replicate<U, V> &&) noexcept { return *this; }
   virtual ~default_replicate() noexcept {};
 };
 
@@ -466,6 +672,8 @@ class value_ptr {
     /**
      * Convenience alias used to enable only if the underlying pointers would be compatible
      *
+     * In case we're serving an array type, consider its underlying type
+     * instead.
      */
     template <typename U, typename V = nullptr_t>
     using enable_if_compatible = std::enable_if<
@@ -480,6 +688,12 @@ class value_ptr {
         pointer_type
       >::value, V>;
 
+    /**
+     * Convenience alias used to enable only if we're serving an array type.
+     *
+     * An array type is take to be a one dimensional open array.
+     *
+     */
     template <typename U, typename V = nullptr_t>
     using enable_if_array = std::enable_if<std::rank<U>::value == 1 && std::extent<U>::value == 0, V>;
 
@@ -768,9 +982,37 @@ class value_ptr {
      */
     virtual ~value_ptr() noexcept { reset(); }
 
+    /**
+     * Const-reference operator[]
+     *
+     * Trying to access past the array's bounds is considered undefined
+     * behavior.
+     *
+     * Note the "template <typename U = T>" trick used: this allows us to
+     * use type traits on the main template type (based on:
+     * http://stackoverflow.com/a/21464113); this effectively enables the
+     * operator as a whole only when serving an array type.
+     *
+     * @param i  Index to retrieve
+     * @return a reference to the i-th entry in the array
+     */
     template <typename U = T>
     constexpr typename enable_if_array<U, lvalue_reference_type>::type operator[](std::size_t i) const { return get()[i]; }
 
+    /**
+     * Non-const reference operator[]
+     *
+     * Trying to access past the array's bounds is considered undefined
+     * behavior.
+     *
+     * Note the "template <typename U = T>" trick used: this allows us to
+     * use type traits on the main template type (based on:
+     * http://stackoverflow.com/a/21464113); this effectively enables the
+     * operator as a whole only when serving an array type.
+     *
+     * @param i  Index to retrieve
+     * @return a reference to the i-th entry in the array
+     */
     template <typename U = T>
     typename enable_if_array<U, reference_type>::type operator[](std::size_t i) { return get()[i]; }
 
@@ -845,6 +1087,11 @@ class value_ptr {
     template <typename T2, typename TRep2, typename TDel2>
     typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &other) noexcept { using std::swap; swap(c, other.c); }
 
+    /**
+     * Swap the internal state with a compatible value_ptr (rvalue overload)
+     *
+     * @param other  The value_ptr to swap values with
+     */
     template <typename T2, typename TRep2, typename TDel2>
     typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &&other) noexcept { using std::swap; swap(c, other.c); }
 
@@ -874,6 +1121,22 @@ class value_ptr {
       static_assert(!std::is_reference<deleter_type>::value || !std::is_rvalue_reference<TDel2>::value, "rvalue replicator bound to reference");
     }
 
+    /**
+     * Construct a new value_ptr from a nullptr
+     *
+     * The sanity checks performed are:
+     * - if the pointed-to type is polymorphic, the replicator cannot be a default_copy one,
+     * - if the replicator type is a pointer, it cannot be initialized with nullptr,
+     * - if the deleter type is a pointer, it cannot be initialized with nullptr,
+     * - if the replicator type is a reference, it cannot be initialized with a temporary,
+     * - if the deleter type is a reference, it cannot be initialized with a temporary.
+     *
+     *
+     * @param <unnamed>  Nullptr to use
+     * @param replicator  Replicator object to use
+     * @param deleter  Deleter object to use
+     * @param <unnamed>  nullptr_t parameter to use for disambiguation
+     */
     template <typename TRep2, typename TDel2>
     constexpr value_ptr(nullptr_t, TRep2&& replicator, TDel2&& deleter, nullptr_t) noexcept : c{nullptr, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {
       static_assert(!std::is_polymorphic<T>::value || !std::is_same<TRep, default_replicate<T, false>>::value, "would slice when copying");
