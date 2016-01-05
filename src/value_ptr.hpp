@@ -3,9 +3,56 @@
 
 #include <type_traits>
 #include <functional>
+#include <exception>
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <tuple>
+#include <new>
+
+class Abi {
+  public:
+    // return the size of the array padding needed
+    template <typename T> static constexpr std::size_t arrayPadding() noexcept;
+    // return the size of the pointed-to array
+    template <typename T> static std::size_t arraySize(T const *p);
+    // Return a new array with cookie set
+    template <typename T> static T *newArray(std::size_t n);
+    // Delete a newArray including cookie
+    template <typename T> static void delArray(T const *p);
+};
+
+class Itanium : public Abi {
+  public:
+    // return the size of the array padding needed (Itanium ABI)
+    template <typename T>
+    static constexpr std::size_t arrayPadding() noexcept override {
+      return __has_trivial_destructor(T) ? 0 : std::max(sizeof(std::size_t), alignof(T));
+    }
+
+    // return the size of the pointed-to array (Itanium ABI)
+    template <typename T>
+    static std::size_t arraySize(T const *p) override {
+      return arrayPadding<T>() ? reinterpret_cast<std::size_t const *>(p)[-1] : 0;
+    }
+    // Return a new array with cookie set (Itanium ABI)
+    template <typename T>
+    static T *newArray(std::size_t n) override {
+      std::size_t padding = arrayPadding<T>();
+      T *ret = reinterpret_cast<T *>(new char[n * sizeof(T) + padding] + padding);
+
+      if (padding) {
+        reinterpret_cast<std::size_t *>(ret)[-1] = n;
+      }
+
+      return ret;
+    }
+    // Delete a newArray including cookie (Itanium ABI)
+    template <typename T>
+    static void delArray(T const *p) override {
+      delete[] reinterpret_cast<char const *>(p - arrayPadding<T>());
+    }
+};
 
 /**
  * Specialization of conditional that mirrors its bool value to a type
@@ -94,12 +141,41 @@ struct is_cloneable {
     static constexpr bool value = std::is_polymorphic<T>::value && decltype(test<T>(nullptr))::value;
 };
 
+// needed for specialization
+template <typename T>
+struct is_placement_cloneable {
+  protected:
+    template <typename>
+    static constexpr auto test(...) -> std::false_type;
+
+    template <typename S>
+    static constexpr auto test(decltype(&S::clone))
+      -> decltype(test(&S::clone, nullptr));
+
+    template <typename S, typename R, typename ...U>
+    static constexpr auto test(R *(S::*)(void *, U...) const, nullptr_t)
+      -> typename condition<
+        sizeof(R) == sizeof(S) &&
+        std::is_base_of<R, S>::value &&
+        std::is_same<R *, decltype(std::declval<S>().clone(nullptr))>::value
+      >::type;
+
+  public:
+    static constexpr bool value = std::is_polymorphic<T>::value && decltype(test<T>(nullptr))::value;
+};
+
+// specialization for arrays
+template <typename T>
+struct is_cloneable<T[]> {
+  static constexpr bool value = is_placement_cloneable<T>::value;
+};
+
 /**
  * Metaprogramming class to provide a default replicator using the class' copy constructor
  *
  * @param T  Class to provide a replicator for
  */
-template <typename T>
+template <typename T, typename ABI = Itanium>
 struct default_copy {
   /**
    * Refuse to accept types which we do not know how to copy
@@ -138,12 +214,52 @@ struct default_copy {
   T *operator()(T const *p) const { return nullptr != p ? new T{*p} : nullptr; }
 };
 
+// specialization for arrays (Itanium ABI)
+template <typename T, typename ABI>
+struct default_copy<T[], ABI> {
+  static_assert(std::is_copy_constructible<T>::value, "default_copy requires a copy constructor");
+
+  default_copy() noexcept {}
+  template <typename U> default_copy(default_copy<U> const &) noexcept {}
+  template <typename U> default_copy(default_copy<U> &&) noexcept {}
+  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept {}
+  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept {}
+  virtual ~default_copy() noexcept {};
+
+  T *operator()(T const *p) const {
+    if (nullptr == p) {
+      return nullptr;
+    }
+
+    std::size_t i, n = reinterpret_cast<std::size_t const *>(p)[-1];
+    T *ret = ABI::template newArray<T>(n);
+
+    try {
+      for (i = 0; i < n; i++) {
+        new(ret + i) T{p[i]};
+      }
+    } catch (...) {
+      while (i--) {
+        try {
+          ret[i].~T();
+        } catch (...) {
+          std::terminate();
+        }
+      }
+      ABI::template delArray<T>(ret);
+      throw;
+    }
+
+    return ret;
+  }
+};
+
 /**
  * Metaprogramming class to provide a default replicator using the class' "clone" method
  *
  * @param T  Class to provide a replicator for
  */
-template <typename T>
+template <typename T, typename ABI = Itanium>
 struct default_clone {
   /**
    * Refuse to accept types which we do not know how to clone
@@ -180,6 +296,47 @@ struct default_clone {
    * @return either nullptr if nullptr is given, or a new object cloned from p
    */
   T *operator()(T const *p) const { return nullptr != p ? p->clone() : nullptr; }
+};
+
+// specialization for arrays (Itanium ABI)
+template <typename T, typename ABI>
+struct default_clone<T[], ABI> {
+  static_assert(is_placement_cloneable<T>::value, "default_clone requires a placement-cloneable type");
+  static_assert(!__has_trivial_destructor(T), "default_clone requires a non-trivial destructor for arrays");
+
+  default_clone() noexcept {}
+  template <typename U> default_clone(default_clone<U> const &) noexcept {}
+  template <typename U> default_clone(default_clone<U> &&) noexcept {}
+  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept {}
+  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept {}
+  virtual ~default_clone() noexcept {};
+
+  T *operator()(T const *p) const {
+    if (nullptr == p) {
+      return nullptr;
+    }
+
+    std::size_t i, n = reinterpret_cast<std::size_t const *>(p)[-1];
+    T *ret = ABI::template newArray<T>(n);
+
+    try {
+      for (i = 0; i < n; i++) {
+        (p + i)->clone(ret + i);
+      }
+    } catch (...) {
+      while (i--) {
+        try {
+          ret[i].~T();
+        } catch (...) {
+          std::terminate();
+        }
+      }
+      ABI::template delArray<T>(ret);
+      throw;
+    }
+
+    return ret;
+  }
 };
 
 /**
@@ -269,9 +426,10 @@ class value_ptr {
      * Export basic type alias for the underlying type
      *
      */
-    using element_type   = T;
-    using pointer_type   = element_type *;
-    using reference_type = element_type &;
+    using element_type          = typename std::remove_extent<T>::type;
+    using pointer_type          = element_type *;
+    using reference_type        = element_type &;
+    using lvalue_reference_type = element_type &&;
 
     /**
      * Export basic type alias for the replicator type
@@ -310,7 +468,20 @@ class value_ptr {
      *
      */
     template <typename U, typename V = nullptr_t>
-    using enable_if_compatible = std::enable_if<std::is_convertible<typename std::add_pointer<U>::type, pointer_type>::value, V>;
+    using enable_if_compatible = std::enable_if<
+      std::is_convertible<
+        typename std::add_pointer<
+          typename std::conditional<
+            std::rank<T>::value == 1 && std::extent<T>::value == 0,
+            typename std::remove_extent<U>::type,
+            U
+          >::type
+        >::type,
+        pointer_type
+      >::value, V>;
+
+    template <typename U, typename V = nullptr_t>
+    using enable_if_array = std::enable_if<std::rank<U>::value == 1 && std::extent<U>::value == 0, V>;
 
   public:
     /**
@@ -597,6 +768,12 @@ class value_ptr {
      */
     virtual ~value_ptr() noexcept { reset(); }
 
+    template <typename U = T>
+    constexpr typename enable_if_array<U, lvalue_reference_type>::type operator[](std::size_t i) const { return get()[i]; }
+
+    template <typename U = T>
+    typename enable_if_array<U, reference_type>::type operator[](std::size_t i) { return get()[i]; }
+
     /**
      * Get the pointed-to object
      *
@@ -668,6 +845,9 @@ class value_ptr {
     template <typename T2, typename TRep2, typename TDel2>
     typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &other) noexcept { using std::swap; swap(c, other.c); }
 
+    template <typename T2, typename TRep2, typename TDel2>
+    typename enable_if_compatible<T2, void>::type swap(value_ptr<T2, TRep2, TDel2> &&other) noexcept { using std::swap; swap(c, other.c); }
+
   protected:
     /**
      * Construct a new value_ptr with the given arguments and perform sanity checks
@@ -687,6 +867,15 @@ class value_ptr {
      */
     template <typename T2, typename TRep2, typename TDel2>
     constexpr value_ptr(T2 *p, TRep2&& replicator, TDel2&& deleter, typename enable_if_compatible<T2>::type) noexcept : c{p, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {
+      static_assert(!std::is_polymorphic<T>::value || !std::is_same<TRep, default_replicate<T, false>>::value, "would slice when copying");
+      static_assert(!std::is_pointer<replicator_type>::value || !std::is_same<TRep2, nullptr_t>::value, "constructed with null function pointer replicator");
+      static_assert(!std::is_pointer<deleter_type>::value || !std::is_same<TDel2, nullptr_t>::value, "constructed with null function pointer deleter");
+      static_assert(!std::is_reference<replicator_type>::value || !std::is_rvalue_reference<TRep2>::value, "rvalue replicator bound to reference");
+      static_assert(!std::is_reference<deleter_type>::value || !std::is_rvalue_reference<TDel2>::value, "rvalue replicator bound to reference");
+    }
+
+    template <typename TRep2, typename TDel2>
+    constexpr value_ptr(nullptr_t, TRep2&& replicator, TDel2&& deleter, nullptr_t) noexcept : c{nullptr, std::forward<TRep2>(replicator), std::forward<TDel2>(deleter)} {
       static_assert(!std::is_polymorphic<T>::value || !std::is_same<TRep, default_replicate<T, false>>::value, "would slice when copying");
       static_assert(!std::is_pointer<replicator_type>::value || !std::is_same<TRep2, nullptr_t>::value, "constructed with null function pointer replicator");
       static_assert(!std::is_pointer<deleter_type>::value || !std::is_same<TDel2, nullptr_t>::value, "constructed with null function pointer deleter");
