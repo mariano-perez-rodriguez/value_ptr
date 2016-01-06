@@ -12,18 +12,6 @@
 
 
 /**
- * Generic ABI error exception class
- *
- */
-class abi_error : public std::logic_error { public: using std::logic_error::logic_error; };
-
-/**
- * Exception to be thrown on trivial destructor array types
- *
- */
-class ambiguous_array_type : public abi_error { public: using abi_error::abi_error; };
-
-/**
  * Static class to encapsulate ABI dependent operations
  *
  */
@@ -45,7 +33,7 @@ class Abi {
      * @return the size of the pointed-to array
      * @throws abi_error  In case the size cannot be determined
      */
-    template <typename T> static std::size_t arraySize(T const *p);
+    template <typename T> static std::size_t arraySize(T const *p) noexcept;
 
     /**
      * Return a new array, including cookie if needed, but do NOT call constructors
@@ -92,10 +80,9 @@ class Itanium : public Abi {
      * @throws abi_error  In case the size cannot be determined
      */
     template <typename T>
-    static std::size_t arraySize(T const *p) noexcept(!__has_trivial_destructor(T)) override {
-      if (__has_trivial_destructor(T)) {
-        throw new ambiguous_array_type("Array type has trivial destructor");
-      }
+    static std::size_t arraySize(T const *p) noexcept override {
+      static_assert(!__has_trivial_destructor(T), "array type has trivial destructor");
+
       return reinterpret_cast<std::size_t const *>(p)[-1];
     }
 
@@ -325,6 +312,7 @@ struct is_cloneable<T[]> {
  * Metaprogramming class to provide a default replicator using the class' copy constructor
  *
  * @param T  Class to provide a replicator for
+ * @param ABI  ABI adapter class to use (Itanium by default)
  */
 template <typename T, typename ABI = Itanium>
 struct default_copy {
@@ -419,11 +407,7 @@ struct default_copy<T[], ABI> {
       }
     } catch (...) {
       while (i--) {
-        try {
-          ret[i].~T();
-        } catch (...) {
-          std::terminate();
-        }
+        try { (ret + i)->~T(); } catch (...) { std::terminate(); }
       }
       ABI::template delArray<T>(ret);
       throw;
@@ -437,6 +421,7 @@ struct default_copy<T[], ABI> {
  * Metaprogramming class to provide a default replicator using the class' "clone" method
  *
  * @param T  Class to provide a replicator for
+ * @param ABI  ABI adapter class to use (Itanium by default)
  */
 template <typename T, typename ABI = Itanium>
 struct default_clone {
@@ -531,11 +516,7 @@ struct default_clone<T[], ABI> {
       }
     } catch (...) {
       while (i--) {
-        try {
-          ret[i].~T();
-        } catch (...) {
-          std::terminate();
-        }
+        try { (ret + i)->~T(); } catch (...) { std::terminate(); }
       }
       ABI::template delArray<T>(ret);
       throw;
@@ -619,13 +600,104 @@ struct default_replicate<T, false> : public default_copy<T> {
 };
 
 /**
+ * Metaprogramming class to automatically select the destruction method to use
+ *
+ * @param T  Class to select a destruction method for
+ * @param ABI  ABI adapter class to use (Itanium by default)
+ */
+template <typename T, typename ABI = Itanium>
+struct default_destroy {
+  /**
+   * Interaction boilerplate
+   *
+   * This battery of definitions are in place so that objects may be copied,
+   * moved, initialized, and assigned arbitrarily. Note that this is not a big
+   * deal, since this structure itself has no members.
+   *
+   */
+  default_destroy() noexcept {}
+  template <typename U, typename V> default_destroy(default_destroy<U, V> const &) noexcept {}
+  template <typename U, typename V> default_destroy(default_destroy<U, V> &&) noexcept {}
+  template <typename U, typename V> default_destroy &operator=(default_destroy<U, V> const &) noexcept { return *this; }
+  template <typename U, typename V> default_destroy &operator=(default_destroy<U, V> &&) noexcept { return *this; }
+  virtual ~default_destroy() noexcept {};
+
+  /**
+   * Destroyer implementation
+   *
+   * The "operator()" in this class simply applies delete to the given pointer.
+   *
+   * @param p  Pointer to the object to delete
+   */
+  void operator()(T const *p) const {
+    static_assert(sizeof(T) > 0, "default_destroy cannot work on incomplete types");
+
+    delete p;
+  }
+};
+
+/**
+ * Specialization of default_destroy for array types
+ *
+ */
+template <typename T, typename ABI>
+struct default_destroy<T[], ABI> {
+  /**
+   * Interaction boilerplate
+   *
+   * This battery of definitions are in place so that objects may be copied,
+   * moved, initialized, and assigned arbitrarily. Note that this is not a big
+   * deal, since this structure itself has no members.
+   *
+   */
+  default_destroy() noexcept {}
+  template <typename U, typename V> default_destroy(default_destroy<U, V> const &) noexcept {}
+  template <typename U, typename V> default_destroy(default_destroy<U, V> &&) noexcept {}
+  template <typename U, typename V> default_destroy &operator=(default_destroy<U, V> const &) noexcept { return *this; }
+  template <typename U, typename V> default_destroy &operator=(default_destroy<U, V> &&) noexcept { return *this; }
+  virtual ~default_destroy() noexcept {};
+
+  /**
+   * Destroyer implementation
+   *
+   * The "operator()" in this class calls each object's destructor and then
+   * deletes the substrate array.
+   *
+   * @param p  Pointer to the array to delete
+   */
+  void operator()(T const *p) const {
+    static_assert(sizeof(T) > 0, "default_destroy cannot work on incomplete types");
+
+    if (nullptr == p) {
+      return;
+    }
+
+    std::size_t n = ABI::template arraySize<T>(p), i = n;
+
+    try {
+      while (i--) {
+        (p + i)->~T();
+      }
+      ABI::template delArray<T>(p);
+    } catch (...) {
+      while (i--) {
+        try { (p + i)->~T(); } catch (...) { std::terminate(); }
+      }
+      ABI::template delArray<T>(p);
+      throw;
+    }
+  }
+};
+
+
+/**
  * Smart pointer with value-like semantics
  *
  * @param T  Underlying type to wrap
  * @param TRep  Replicator type to use
  * @param TDel  Deleter type to use
  */
-template <typename T, typename TRep = default_replicate<T>, typename TDel = std::default_delete<T>>
+template <typename T, typename TRep = default_replicate<T>, typename TDel = default_destroy<T>>
 class value_ptr {
   public:
     /**
