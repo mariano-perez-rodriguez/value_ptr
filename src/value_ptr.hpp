@@ -114,7 +114,7 @@ class Itanium : public Abi {
      */
     template <typename T>
     static void delArray(T const *p) noexcept override {
-      delete[] reinterpret_cast<char const *>(p - arrayCookieLen<T>());
+      delete[] (reinterpret_cast<char const *>(p) - arrayCookieLen<T>());
     }
 };
 
@@ -688,7 +688,6 @@ struct default_destroy<T[], ABI> {
     }
   }
 };
-
 
 /**
  * Smart pointer with value-like semantics
