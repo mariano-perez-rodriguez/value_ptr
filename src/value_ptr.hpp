@@ -118,6 +118,7 @@ class Itanium : public Abi {
     }
 };
 
+
 /**
  * Specialization of conditional that mirrors its bool value to a type
  *
@@ -125,6 +126,7 @@ class Itanium : public Abi {
  */
 template <bool C>
 using condition = std::conditional<C, std::true_type, std::false_type>;
+
 
 /**
  * Metaprogramming class to detect the presence of a (possibly inherited) "placement clone" method (possibly utilizing covariant return types)
@@ -307,6 +309,7 @@ template <typename T>
 struct is_cloneable<T[]> {
   static constexpr bool value = is_placement_cloneable<T>::value;
 };
+
 
 /**
  * Metaprogramming class to provide a default replicator using the class' copy constructor
@@ -599,6 +602,7 @@ struct default_replicate<T, false> : public default_copy<T> {
   virtual ~default_replicate() noexcept {};
 };
 
+
 /**
  * Metaprogramming class to automatically select the destruction method to use
  *
@@ -688,6 +692,7 @@ struct default_destroy<T[], ABI> {
     }
   }
 };
+
 
 /**
  * Smart pointer with value-like semantics
@@ -1223,6 +1228,7 @@ class value_ptr {
      */
     tuple_type c;
 };
+
 
 /**
  * Swap function overloads for compatible value_ptrs
