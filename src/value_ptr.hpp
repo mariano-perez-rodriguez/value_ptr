@@ -57,6 +57,8 @@ class Abi {
 /**
  * Static class to encapsulate Itanium ABI operations
  *
+ * See: https://mentorembedded.github.io/cxx-abi/abi.html
+ *
  */
 class Itanium : public Abi {
   public:
