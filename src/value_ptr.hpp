@@ -31,7 +31,6 @@ class Abi {
      * @param T  Underlying type of the array
      * @param p  Pointer to the array proper
      * @return the size of the pointed-to array
-     * @throws abi_error  In case the size cannot be determined
      */
     template <typename T> static std::size_t arraySize(T const *p) noexcept;
 
@@ -337,12 +336,14 @@ struct default_copy {
    * moved, initialized, and assigned arbitrarily. Note that this is not a big
    * deal, since this structure itself has no members.
    *
+   * Note: only accept the same ABI counterparts.
+   *
    */
   default_copy() noexcept {}
-  template <typename U> default_copy(default_copy<U> const &) noexcept {}
-  template <typename U> default_copy(default_copy<U> &&) noexcept {}
-  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept { return *this; }
-  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept { return *this; }
+  template <typename U> default_copy(default_copy<U, ABI> const &) noexcept {}
+  template <typename U> default_copy(default_copy<U, ABI> &&) noexcept {}
+  template <typename U> default_copy &operator=(default_copy<U, ABI> const &) noexcept { return *this; }
+  template <typename U> default_copy &operator=(default_copy<U, ABI> &&) noexcept { return *this; }
   virtual ~default_copy() noexcept {};
 
   /**
@@ -382,10 +383,10 @@ struct default_copy<T[], ABI> {
    *
    */
   default_copy() noexcept {}
-  template <typename U> default_copy(default_copy<U> const &) noexcept {}
-  template <typename U> default_copy(default_copy<U> &&) noexcept {}
-  template <typename U> default_copy &operator=(default_copy<U> const &) noexcept { return *this; }
-  template <typename U> default_copy &operator=(default_copy<U> &&) noexcept { return *this; }
+  template <typename U> default_copy(default_copy<U, ABI> const &) noexcept {}
+  template <typename U> default_copy(default_copy<U, ABI> &&) noexcept {}
+  template <typename U> default_copy &operator=(default_copy<U, ABI> const &) noexcept { return *this; }
+  template <typename U> default_copy &operator=(default_copy<U, ABI> &&) noexcept { return *this; }
   virtual ~default_copy() noexcept {};
 
   /**
@@ -448,10 +449,10 @@ struct default_clone {
    *
    */
   default_clone() noexcept {}
-  template <typename U> default_clone(default_clone<U> const &) noexcept {}
-  template <typename U> default_clone(default_clone<U> &&) noexcept {}
-  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept { return *this; }
-  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept { return *this; }
+  template <typename U> default_clone(default_clone<U, ABI> const &) noexcept {}
+  template <typename U> default_clone(default_clone<U, ABI> &&) noexcept {}
+  template <typename U> default_clone &operator=(default_clone<U, ABI> const &) noexcept { return *this; }
+  template <typename U> default_clone &operator=(default_clone<U, ABI> &&) noexcept { return *this; }
   virtual ~default_clone() noexcept {};
 
   /**
@@ -491,10 +492,10 @@ struct default_clone<T[], ABI> {
    *
    */
   default_clone() noexcept {}
-  template <typename U> default_clone(default_clone<U> const &) noexcept {}
-  template <typename U> default_clone(default_clone<U> &&) noexcept {}
-  template <typename U> default_clone &operator=(default_clone<U> const &) noexcept { return *this; }
-  template <typename U> default_clone &operator=(default_clone<U> &&) noexcept { return *this; }
+  template <typename U> default_clone(default_clone<U, ABI> const &) noexcept {}
+  template <typename U> default_clone(default_clone<U, ABI> &&) noexcept {}
+  template <typename U> default_clone &operator=(default_clone<U, ABI> const &) noexcept { return *this; }
+  template <typename U> default_clone &operator=(default_clone<U, ABI> &&) noexcept { return *this; }
   virtual ~default_clone() noexcept {};
 
   /**
@@ -657,10 +658,10 @@ struct default_destroy<T[], ABI> {
    *
    */
   default_destroy() noexcept {}
-  template <typename U, typename V> default_destroy(default_destroy<U, V> const &) noexcept {}
-  template <typename U, typename V> default_destroy(default_destroy<U, V> &&) noexcept {}
-  template <typename U, typename V> default_destroy &operator=(default_destroy<U, V> const &) noexcept { return *this; }
-  template <typename U, typename V> default_destroy &operator=(default_destroy<U, V> &&) noexcept { return *this; }
+  template <typename U> default_destroy(default_destroy<U, ABI> const &) noexcept {}
+  template <typename U> default_destroy(default_destroy<U, ABI> &&) noexcept {}
+  template <typename U> default_destroy &operator=(default_destroy<U, ABI> const &) noexcept { return *this; }
+  template <typename U> default_destroy &operator=(default_destroy<U, ABI> &&) noexcept { return *this; }
   virtual ~default_destroy() noexcept {};
 
   /**
