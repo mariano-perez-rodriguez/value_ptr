@@ -4,7 +4,13 @@
 
 #include <type_traits>
 
-#include "Definitions.hpp"
+/**
+ * Specialization of conditional that mirrors its bool value to a type
+ *
+ * @param C  Condition to "lift" to a type
+ */
+template <bool C>
+using condition = std::conditional<C, std::true_type, std::false_type>;
 
 /**
  * Metaprogramming class to detect the presence of a (possibly inherited) "clone" method (possibly utilizing covariant return types)
