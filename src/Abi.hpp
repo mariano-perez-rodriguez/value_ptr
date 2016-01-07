@@ -3,6 +3,8 @@
 
 
 #include <cstdint>
+#include <algorithm>
+
 
 /**
  * Static class to encapsulate ABI dependent operations
