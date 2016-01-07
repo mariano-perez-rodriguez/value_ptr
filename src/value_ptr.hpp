@@ -11,15 +11,7 @@
 #include <new>
 
 
-/**
- * Specialization of conditional that mirrors its bool value to a type
- *
- * @param C  Condition to "lift" to a type
- */
-template <bool C>
-using condition = std::conditional<C, std::true_type, std::false_type>;
-
-
+#include "Definitions.hpp"
 #include "Abi.hpp"
 
 
