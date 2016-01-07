@@ -37,11 +37,9 @@ static bool test_fundamental() {
   vi4 = vi1;
   vi3 = vi2;
 
-  vi1.get_replicator();
-  vi1.get_deleter();
+  vi1.get_handler();
 
-  vi3.get_replicator() = vi4.get_replicator();
-  vi3.get_deleter() = vi4.get_deleter();
+  vi3.get_handler() = vi4.get_handler();
 
   return true;
 }
@@ -122,11 +120,9 @@ static bool test_base() {
   log_up("vb4 = vb1"); vb4 = vb1; log_down();
   log_up("vb3 = vb2"); vb3 = vb2; log_down();
 
-  log_up("vb1.get_replicator()"); vb1.get_replicator(); log_down();
-  log_up("vb1.get_deleter()"   ); vb1.get_deleter()   ; log_down();
+  log_up("vb1.get_handler()"); vb1.get_handler(); log_down();
 
-  log_up("vb3.get_replicator() = vb4.get_replicator()"); vb3.get_replicator() = vb4.get_replicator(); log_down();
-  log_up("vb3.get_deleter() = vb4.get_deleter()"      ); vb3.get_deleter()    = vb4.get_deleter()   ; log_down();
+  log_up("vb3.get_handler() = vb4.get_handler()"); vb3.get_handler() = vb4.get_handler(); log_down();
 
   return true;
 }
@@ -141,11 +137,9 @@ static bool test_base_array() {
   log_up("vb4 = vb1"); vb4 = vb1; log_down();
   log_up("vb3 = vb2"); vb3 = vb2; log_down();
 
-  log_up("vb1.get_replicator()"); vb1.get_replicator(); log_down();
-  log_up("vb1.get_deleter()"   ); vb1.get_deleter()   ; log_down();
+  log_up("vb1.get_handler()"); vb1.get_handler(); log_down();
 
-  log_up("vb3.get_replicator() = vb4.get_replicator()"); vb3.get_replicator() = vb4.get_replicator(); log_down();
-  log_up("vb3.get_deleter() = vb4.get_deleter()"      ); vb3.get_deleter()    = vb4.get_deleter()   ; log_down();
+  log_up("vb3.get_handler() = vb4.get_handler()"); vb3.get_handler() = vb4.get_handler(); log_down();
 
   return true;
 }
