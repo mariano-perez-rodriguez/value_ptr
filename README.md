@@ -7,7 +7,7 @@ A value semantics smart pointer for C++.
 In order to use this class you must simply do:
 
 ````c++
-#include "value_ptr.hpp"
+#include "value_ptr.h"
 ````
 
 Now you can for example write:
@@ -18,10 +18,10 @@ value_ptr<std::string> string_vp = new std::string("Hello World!");
 
 From this point on, `value_ptr` will care for the pointer given and will `delete` it when appropriate.
 
-If you want to control the replicator or deleter to use, you can do something like:
+If you want to control the replication or deleting procedures to use, you can do something like:
 
 ````c++
-auto someClass_vp = value_ptr<someClass>(nullptr, default_copy<someClass>(), someDeleterObject);
+auto someClass_vp = value_ptr<someClass>(nullptr, some_handler_object);
 ````
 
 Using the `value_ptr` is similar to using a `unique_ptr`, even the same names are used.
@@ -40,8 +40,7 @@ Using the `value_ptr` is similar to using a `unique_ptr`, even the same names ar
     - [With which, if any, standard smart pointers should this template innately interoperate, and to what degree?](#with-which-if-any-standard-smart-pointers-should-this-template-innately-interoperate-and-to-what-degree)
     - [What color should the bicycle shed be painted?](#what-color-should-the-bicycle-shed-be-painted)
 - [Usage](#usage)
-  - [Deleters](#deleters)
-  - [Replicators](#replicators)
+  - [Handlers](#handlers)
 
 * * *
 
@@ -114,22 +113,16 @@ Furthermore, if the template type parameter is an array type, it supports both o
 
 It additionally supports the `get_replicator` and `get_deleter` methods to obtain or modify the underlying replicator and deleter objects.
 
-### Deleters
+### Handlers
 
-Deleters are objects having an `operator()` method that takes a pointer to a constant object of type `T` and takes care of its proper destruction and memory reclamation.
-You can provide your own deleter if you so choose, but sane defaults are already provided by the `default_destroy` class.
+Deleters are objects having `destroy` and `replicate` methods, and a static `bool slice_safe` member.
 
-Do note, however, that a deleter intended to work with arrays will necessarily depend on an ABI definition.
+The `destroy` method takes a pointer to a constant object of type `T` and takes care of its proper destruction and memory reclamation.
 
-One way or another, a deleter must properly articulate with a corresponding replicator.
+The `replicate` method takes a pointer to a constant object of type `T` and returns a pointer to a replica of it.
 
-### Replicators
+The `slice_safe` member should indicate whether the other methods may be passed a pointer to a base class and behave polymorphically.
 
-Replicators are objects having an `operator()` method that takes a pointer to a constant object of type `T` and returns a pointer to a replica of it.
-You can provide your own replicator if you so choose, but sane defaults are already provided by the `default_replicate` class.
+You can provide your own handler if you so choose, but sane defaults are already provided by the `default_handler` class.
 
-Do note, however, that a replicator intended to work with arrays will necessarily depend on an ABI definition.
-
-Furthermore, in order to prevent _slicing_, the replicator should be `clone`-aware (the default one is).
-
-One way or another, a deleter must properly articulate with a corresponding replicator.
+Do note, however, that a handler intended to work with arrays will necessarily depend on an ABI definition.

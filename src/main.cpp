@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "value_ptr.hpp"
+#include "value_ptr.h"
 
 // =========================================================================================================================================
 // == TESTS ================================================================================================================================
@@ -37,11 +37,9 @@ static bool test_fundamental() {
   vi4 = vi1;
   vi3 = vi2;
 
-  vi1.get_replicator();
-  vi1.get_deleter();
+  auto h = vi1.get_handler(); h = h;
 
-  vi3.get_replicator() = vi4.get_replicator();
-  vi3.get_deleter() = vi4.get_deleter();
+  vi3.get_handler() = vi4.get_handler();
 
   return true;
 }
@@ -122,11 +120,9 @@ static bool test_base() {
   log_up("vb4 = vb1"); vb4 = vb1; log_down();
   log_up("vb3 = vb2"); vb3 = vb2; log_down();
 
-  log_up("vb1.get_replicator()"); vb1.get_replicator(); log_down();
-  log_up("vb1.get_deleter()"   ); vb1.get_deleter()   ; log_down();
+  log_up("vb1.get_handler()"); auto h = vb1.get_handler(); h = h; log_down();
 
-  log_up("vb3.get_replicator() = vb4.get_replicator()"); vb3.get_replicator() = vb4.get_replicator(); log_down();
-  log_up("vb3.get_deleter() = vb4.get_deleter()"      ); vb3.get_deleter()    = vb4.get_deleter()   ; log_down();
+  log_up("vb3.get_handler() = vb4.get_handler()"); vb3.get_handler() = vb4.get_handler(); log_down();
 
   return true;
 }
@@ -141,11 +137,9 @@ static bool test_base_array() {
   log_up("vb4 = vb1"); vb4 = vb1; log_down();
   log_up("vb3 = vb2"); vb3 = vb2; log_down();
 
-  log_up("vb1.get_replicator()"); vb1.get_replicator(); log_down();
-  log_up("vb1.get_deleter()"   ); vb1.get_deleter()   ; log_down();
+  log_up("vb1.get_handler()"); auto h = vb1.get_handler(); h = h; log_down();
 
-  log_up("vb3.get_replicator() = vb4.get_replicator()"); vb3.get_replicator() = vb4.get_replicator(); log_down();
-  log_up("vb3.get_deleter() = vb4.get_deleter()"      ); vb3.get_deleter()    = vb4.get_deleter()   ; log_down();
+  log_up("vb3.get_handler() = vb4.get_handler()"); vb3.get_handler() = vb4.get_handler(); log_down();
 
   return true;
 }
@@ -156,29 +150,6 @@ static bool test_base_array() {
 
 using namespace std;
 
-/*
-class A {
-  public:
-    virtual A *clone() const;
-    virtual ~A() noexcept {};
-};
-
-class B : public A {};
-
-class C {};
-
-
-#include <string>
-class cs : public std::string {
-  public:
-    using std::string::string;
-    virtual cs *clone(void *) const { return new cs(*this); }
-    virtual ~cs() {};
-};
-template struct default_clone<cs[]>;
-template class value_ptr<cs[]>;
-*/
-
 
 int main(int argc, char *argv[]) {
   cerr << "Arguments:" << endl;
@@ -186,21 +157,6 @@ int main(int argc, char *argv[]) {
     cerr << "  " << i << ": " << argv[i] << endl;
   }
   cerr << endl;
-
-  /*
-  value_ptr<long> ll(new long(123));
-  if (ll) {
-    cout << "LL TRUE" << endl;
-  } else {
-    cout << "LL FALSE" << endl;
-  }
-
-  cout << is_cloneable<A>::value << endl;
-  cout << is_cloneable<B>::value << endl;
-
-  value_ptr<cs[]> vcs = new cs[10];
-  vcs[0] = cs();
-  */
 
   // ---------------------------------------------------------------------------
 
@@ -212,14 +168,6 @@ int main(int argc, char *argv[]) {
   cout << "RESET BEGIN" << endl;
   vb.reset();
   cout << "RESET END" << endl;
-
-  /*
-  cout << "is_cloneable<Base   >::value = " << is_cloneable<Base   >::value << endl;
-  cout << "is_cloneable<Derived>::value = " << is_cloneable<Derived>::value << endl;
-  cout << endl;
-  cout << "is_placement_cloneable<Base   >::value = " << is_placement_cloneable<Base   >::value << endl;
-  cout << "is_placement_cloneable<Derived>::value = " << is_placement_cloneable<Derived>::value << endl;
-  */
 
   // ---------------------------------------------------------------------------
 
