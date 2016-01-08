@@ -96,6 +96,7 @@ class value_ptr {
      *
      */
     constexpr value_ptr() noexcept;
+
     /**
      * Copy constructor
      *
@@ -105,6 +106,7 @@ class value_ptr {
      * @param other  Object to copy
      */
     constexpr value_ptr(value_ptr const &other) noexcept;
+
     /**
      * Move constructor
      *
@@ -282,28 +284,7 @@ class value_ptr {
      * @param other  Object to copy-assign
      * @return the assigned object
      */
-    value_ptr &operator=(value_ptr const &other);
-
-    /**
-     * Move-assignment operator
-     *
-     * This Move-assignment operator implements the "move and swap" idiom.
-     *
-     * @param other  Object to move-assign
-     * @return the assigned object
-     */
-    value_ptr &operator=(value_ptr &&other);
-
-    /**
-     * Templated copy-assignment operator
-     *
-     * This copy-assignment operator accepts any compatible object, it
-     * DOES NOT implement the "copy and swap" idiom ON PURPOSE (ambiguous declarations otherwise).
-     *
-     * @param other  Object to copy-assign
-     * @return the assigned object
-     */
-    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(typename enable_if_different<T2, value_ptr<T2, H2>>::type const &other);
+    value_ptr &operator=(value_ptr other);
 
     /**
      * Templated move-assignment operator
@@ -314,7 +295,7 @@ class value_ptr {
      * @param other  Object to move-assign
      * @return the assigned object
      */
-    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(typename enable_if_different<T2, value_ptr<T2, H2>>::type &&other);
+    template <typename T2, typename H2> typename enable_if_different<T2, typename enable_if_compatible<T2, value_ptr &>::type>::type operator=(value_ptr<T2, H2> &&other);
 
     /**
      * Safe bool conversion operator

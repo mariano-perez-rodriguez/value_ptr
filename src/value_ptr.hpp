@@ -242,37 +242,8 @@ value_ptr<T, H> &value_ptr<T, H>::operator=(nullptr_t) noexcept { reset(); retur
  * @return the assigned object
  */
 template <typename T, typename H>
-value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> const &other) {
-  value_ptr<T, H> tmp = other;
-  swap(tmp);
-  return *this;
-}
-
-/**
- * Move-assignment operator
- *
- * This Move-assignment operator implements the "move and swap" idiom.
- *
- * @param other  Object to move-assign
- * @return the assigned object
- */
-template <typename T, typename H>
-value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> &&other) { swap(std::move(other)); return *this; }
-
-/**
- * Templated copy-assignment operator
- *
- * This copy-assignment operator accepts any compatible object, it
- * DOES NOT implement the "copy and swap" idiom ON PURPOSE (ambiguous declarations otherwise).
- *
- * @param other  Object to copy-assign
- * @return the assigned object
- */
-template <typename T, typename H>
-template <typename T2, typename H2>
-typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type const &other) {
-  value_ptr<T, H> tmp = other;
-  swap(other);
+value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> other) {
+  swap(value_ptr<T, H>(other));
   return *this;
 }
 
@@ -287,7 +258,7 @@ typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::
  */
 template <typename T, typename H>
 template <typename T2, typename H2>
-typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type &&other) { swap(std::move(other)); return *this; }
+typename value_ptr<T, H>::template enable_if_different<T2, typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type>::type value_ptr<T, H>::operator=(value_ptr<T2, H2> &&other) { swap(std::move(other)); return *this; }
 
 /**
  * Safe bool conversion operator
