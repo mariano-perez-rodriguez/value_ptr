@@ -150,29 +150,6 @@ static bool test_base_array() {
 
 using namespace std;
 
-/*
-class A {
-  public:
-    virtual A *clone() const;
-    virtual ~A() noexcept {};
-};
-
-class B : public A {};
-
-class C {};
-
-
-#include <string>
-class cs : public std::string {
-  public:
-    using std::string::string;
-    virtual cs *clone(void *) const { return new cs(*this); }
-    virtual ~cs() {};
-};
-template struct default_clone<cs[]>;
-template class value_ptr<cs[]>;
-*/
-
 
 int main(int argc, char *argv[]) {
   cerr << "Arguments:" << endl;
@@ -180,21 +157,6 @@ int main(int argc, char *argv[]) {
     cerr << "  " << i << ": " << argv[i] << endl;
   }
   cerr << endl;
-
-  /*
-  value_ptr<long> ll(new long(123));
-  if (ll) {
-    cout << "LL TRUE" << endl;
-  } else {
-    cout << "LL FALSE" << endl;
-  }
-
-  cout << is_cloneable<A>::value << endl;
-  cout << is_cloneable<B>::value << endl;
-
-  value_ptr<cs[]> vcs = new cs[10];
-  vcs[0] = cs();
-  */
 
   // ---------------------------------------------------------------------------
 
@@ -206,14 +168,6 @@ int main(int argc, char *argv[]) {
   cout << "RESET BEGIN" << endl;
   vb.reset();
   cout << "RESET END" << endl;
-
-  /*
-  cout << "is_cloneable<Base   >::value = " << is_cloneable<Base   >::value << endl;
-  cout << "is_cloneable<Derived>::value = " << is_cloneable<Derived>::value << endl;
-  cout << endl;
-  cout << "is_placement_cloneable<Base   >::value = " << is_placement_cloneable<Base   >::value << endl;
-  cout << "is_placement_cloneable<Derived>::value = " << is_placement_cloneable<Derived>::value << endl;
-  */
 
   // ---------------------------------------------------------------------------
 
