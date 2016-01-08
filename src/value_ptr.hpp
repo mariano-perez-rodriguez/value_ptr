@@ -52,7 +52,7 @@ constexpr value_ptr<T, H>::value_ptr(value_ptr<T, H> &&other) noexcept : value_p
  */
 template <typename T, typename H>
 template <typename T2, typename H2>
-constexpr value_ptr<T, H>::value_ptr(value_ptr<T2, H2> const &other) noexcept : value_ptr<T, H>{other.get_handler().replicate(other.get()), other.get_handler(), nullptr} {}
+constexpr value_ptr<T, H>::value_ptr(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type const &other) noexcept : value_ptr<T, H>{other.get_handler().replicate(other.get()), other.get_handler(), nullptr} {}
 
 /**
  * Templated move constructor
@@ -68,7 +68,7 @@ constexpr value_ptr<T, H>::value_ptr(value_ptr<T2, H2> const &other) noexcept : 
  */
 template <typename T, typename H>
 template <typename T2, typename H2>
-constexpr value_ptr<T, H>::value_ptr(value_ptr<T2, H2> &&other) noexcept : value_ptr<T, H>{other.release(), std::move(other.get_handler()), nullptr} {}
+constexpr value_ptr<T, H>::value_ptr(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type &&other) noexcept : value_ptr<T, H>{other.release(), std::move(other.get_handler()), nullptr} {}
 
 /**
  * Ownership taking initializing constructors
@@ -266,7 +266,7 @@ value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> &&other) { swap(std:
  */
 template <typename T, typename H>
 template <typename T2, typename H2>
-typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(value_ptr<T2, H2> other) { swap(other); return *this; }
+typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type other) { swap(other); return *this; }
 
 /**
  * Templated move-assignment operator
@@ -279,7 +279,7 @@ typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::
  */
 template <typename T, typename H>
 template <typename T2, typename H2>
-typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(value_ptr<T2, H2> &&other) { swap(std::move(other)); return *this; }
+typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type &&other) { swap(std::move(other)); return *this; }
 
 /**
  * Safe bool conversion operator

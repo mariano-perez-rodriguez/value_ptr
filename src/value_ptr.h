@@ -54,6 +54,13 @@ class value_ptr {
     using __unspecified_bool_type = tuple_type value_ptr::*;
 
     /**
+     * Convenience alias used to enable only if we're serving a different type.
+     *
+     */
+    template <typename U, typename V = nullptr_t>
+    using enable_if_different = std::enable_if<!std::is_same<T, U>::value, V>;
+
+    /**
      * Convenience alias used to enable only if the underlying pointers would be compatible
      *
      * In case we're serving an array type, consider its underlying type
@@ -120,7 +127,7 @@ class value_ptr {
      *
      * @param other  Object to copy
      */
-    template <typename T2, typename H2> constexpr value_ptr(value_ptr<T2, H2> const &other) noexcept;
+    template <typename T2, typename H2> constexpr value_ptr(typename enable_if_different<T2, value_ptr<T2, H2>>::type const &other) noexcept;
 
     /**
      * Templated move constructor
@@ -134,7 +141,7 @@ class value_ptr {
      *
      * @param other  Object to move
      */
-    template <typename T2, typename H2> constexpr value_ptr(value_ptr<T2, H2> &&other) noexcept;
+    template <typename T2, typename H2> constexpr value_ptr(typename enable_if_different<T2, value_ptr<T2, H2>>::type &&other) noexcept;
 
     /**
      * Ownership taking initializing constructors
@@ -296,7 +303,7 @@ class value_ptr {
      * @param other  Object to copy-assign
      * @return the assigned object
      */
-    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, H2> other);
+    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(typename enable_if_different<T2, value_ptr<T2, H2>>::type other);
 
     /**
      * Templated move-assignment operator
@@ -307,7 +314,7 @@ class value_ptr {
      * @param other  Object to move-assign
      * @return the assigned object
      */
-    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(value_ptr<T2, H2> &&other);
+    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(typename enable_if_different<T2, value_ptr<T2, H2>>::type &&other);
 
     /**
      * Safe bool conversion operator
