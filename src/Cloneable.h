@@ -1,5 +1,5 @@
-#ifndef VALUE_PTR__CLONEABLE__
-#define VALUE_PTR__CLONEABLE__
+#ifndef VALUE_PTR__CLONEABLE_H__
+#define VALUE_PTR__CLONEABLE_H__
 
 
 #include <type_traits>
@@ -220,5 +220,5 @@ struct is_cloneable<T[N]> {
 };
 
 
-#endif /* VALUE_PTR__CLONEABLE__ */
+#endif /* VALUE_PTR__CLONEABLE_H__ */
 
