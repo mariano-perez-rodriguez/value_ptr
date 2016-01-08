@@ -236,13 +236,17 @@ value_ptr<T, H> &value_ptr<T, H>::operator=(nullptr_t) noexcept { reset(); retur
 /**
  * Copy-assignment operator
  *
- * This copy-assignment operator implements the "copy and swap" idiom.
+ * This copy-assignment operator DOES NOT implement the "copy and swap" idiom ON PURPOSE (ambiguous declarations otherwise).
  *
  * @param other  Object to copy-assign
  * @return the assigned object
  */
 template <typename T, typename H>
-value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> other) { swap(other); return *this; }
+value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> const &other) {
+  value_ptr<T, H> tmp = other;
+  swap(tmp);
+  return *this;
+}
 
 /**
  * Move-assignment operator
@@ -259,14 +263,18 @@ value_ptr<T, H> &value_ptr<T, H>::operator=(value_ptr<T, H> &&other) { swap(std:
  * Templated copy-assignment operator
  *
  * This copy-assignment operator accepts any compatible object, it
- * implements the "copy and swap" idiom.
+ * DOES NOT implement the "copy and swap" idiom ON PURPOSE (ambiguous declarations otherwise).
  *
  * @param other  Object to copy-assign
  * @return the assigned object
  */
 template <typename T, typename H>
 template <typename T2, typename H2>
-typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type other) { swap(other); return *this; }
+typename value_ptr<T, H>::template enable_if_compatible<T2, value_ptr<T, H> &>::type value_ptr<T, H>::operator=(typename value_ptr<T, H>::template enable_if_different<T2, value_ptr<T2, H2>>::type const &other) {
+  value_ptr<T, H> tmp = other;
+  swap(other);
+  return *this;
+}
 
 /**
  * Templated move-assignment operator

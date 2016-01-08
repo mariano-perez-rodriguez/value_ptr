@@ -277,12 +277,12 @@ class value_ptr {
     /**
      * Copy-assignment operator
      *
-     * This copy-assignment operator implements the "copy and swap" idiom.
+     * This copy-assignment operator DOES NOT implement the "copy and swap" idiom ON PURPOSE (ambiguous declarations otherwise).
      *
      * @param other  Object to copy-assign
      * @return the assigned object
      */
-    value_ptr &operator=(value_ptr other);
+    value_ptr &operator=(value_ptr const &other);
 
     /**
      * Move-assignment operator
@@ -298,12 +298,12 @@ class value_ptr {
      * Templated copy-assignment operator
      *
      * This copy-assignment operator accepts any compatible object, it
-     * implements the "copy and swap" idiom.
+     * DOES NOT implement the "copy and swap" idiom ON PURPOSE (ambiguous declarations otherwise).
      *
      * @param other  Object to copy-assign
      * @return the assigned object
      */
-    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(typename enable_if_different<T2, value_ptr<T2, H2>>::type other);
+    template <typename T2, typename H2> typename enable_if_compatible<T2, value_ptr &>::type operator=(typename enable_if_different<T2, value_ptr<T2, H2>>::type const &other);
 
     /**
      * Templated move-assignment operator
