@@ -259,7 +259,7 @@ struct default_replicate<T, ABI, true> : public default_clone<T, ABI> {
    * Whether the replication method uses "clone" methods
    *
    */
-  static constexpr bool uses_clone = true;
+  static constexpr bool slice_safe = true;
 };
 
 /**
@@ -274,7 +274,7 @@ struct default_replicate<T, ABI, false> : public default_copy<T, ABI> {
    * Whether the replication method uses "clone" methods
    *
    */
-  static constexpr bool uses_clone = false;
+  static constexpr bool slice_safe = false;
 };
 
 
@@ -290,7 +290,7 @@ template <typename T, typename ABI = Itanium>
 struct default_handler : public default_destroy<T, ABI>, public default_replicate<T, ABI> {
   using default_destroy<T, ABI>::destroy;
   using default_replicate<T, ABI>::replicate;
-  using default_replicate<T, ABI>::uses_clone;
+  using default_replicate<T, ABI>::slice_safe;
 };
 
 

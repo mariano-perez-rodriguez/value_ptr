@@ -427,7 +427,7 @@ typename value_ptr<T, H>::template enable_if_compatible<T2, void>::type value_pt
 template <typename T, typename H>
 template <typename T2, typename H2>
 constexpr value_ptr<T, H>::value_ptr(T2 *p, H2&& h, typename value_ptr<T, H>::template enable_if_compatible<T2>::type) noexcept : c{p, std::forward<H2>(h)} {
-  static_assert(!std::is_polymorphic<T>::value || H::uses_clone, "would slice when copying");
+  static_assert(!std::is_polymorphic<T>::value || H::slice_safe, "would slice when copying");
   static_assert(!std::is_reference<value_ptr<T, H>::handler_type>::value || !std::is_rvalue_reference<H2>::value, "rvalue handler bound to reference");
 }
 
@@ -449,7 +449,7 @@ constexpr value_ptr<T, H>::value_ptr(T2 *p, H2&& h, typename value_ptr<T, H>::te
 template <typename T, typename H>
 template <typename H2>
 constexpr value_ptr<T, H>::value_ptr(nullptr_t, H2&& h, nullptr_t) noexcept : c{nullptr, std::forward<H2>(h)} {
-  static_assert(!std::is_polymorphic<T>::value || H::uses_clone, "would slice when copying");
+  static_assert(!std::is_polymorphic<T>::value || H::slice_safe, "would slice when copying");
   static_assert(!std::is_reference<value_ptr<T, H>::handler_type>::value || !std::is_rvalue_reference<H2>::value, "rvalue handler bound to reference");
 }
 
