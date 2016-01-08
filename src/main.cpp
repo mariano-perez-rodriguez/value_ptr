@@ -37,7 +37,7 @@ static bool test_fundamental() {
   vi4 = vi1;
   vi3 = vi2;
 
-  vi1.get_handler();
+  auto h = vi1.get_handler(); h = h;
 
   vi3.get_handler() = vi4.get_handler();
 
@@ -120,7 +120,7 @@ static bool test_base() {
   log_up("vb4 = vb1"); vb4 = vb1; log_down();
   log_up("vb3 = vb2"); vb3 = vb2; log_down();
 
-  log_up("vb1.get_handler()"); vb1.get_handler(); log_down();
+  log_up("vb1.get_handler()"); auto h = vb1.get_handler(); h = h; log_down();
 
   log_up("vb3.get_handler() = vb4.get_handler()"); vb3.get_handler() = vb4.get_handler(); log_down();
 
@@ -137,7 +137,7 @@ static bool test_base_array() {
   log_up("vb4 = vb1"); vb4 = vb1; log_down();
   log_up("vb3 = vb2"); vb3 = vb2; log_down();
 
-  log_up("vb1.get_handler()"); vb1.get_handler(); log_down();
+  log_up("vb1.get_handler()"); auto h = vb1.get_handler(); h = h; log_down();
 
   log_up("vb3.get_handler() = vb4.get_handler()"); vb3.get_handler() = vb4.get_handler(); log_down();
 
