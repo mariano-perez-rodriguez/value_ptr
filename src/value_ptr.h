@@ -315,7 +315,7 @@ class value_ptr {
      * This operator implements a safe bool conversion.
      *
      */
-    constexpr operator __unspecified_bool_type() const noexcept;
+    constexpr operator __unspecified_bool_type() const noexcept __attribute__((pure));
 
     /**
      * Virtual destructor
@@ -355,7 +355,7 @@ class value_ptr {
      * @param i  Index to retrieve
      * @return a reference to the i-th entry in the array
      */
-    template <typename U = T> typename enable_if_array<U, reference_type>::type operator[](std::size_t i);
+    template <typename U = T> typename enable_if_array<U, reference_type>::type operator[](std::size_t i) __attribute__((const));
 
     /**
      * Get the pointed-to object
@@ -383,7 +383,7 @@ class value_ptr {
      *
      * @return a reference to the current handler
      */
-    handler_reference get_handler() noexcept;
+    handler_reference get_handler() noexcept __attribute__((const));
 
     /**
      * Get an unmodifiable reference to the current handler

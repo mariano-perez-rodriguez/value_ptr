@@ -53,7 +53,7 @@ class Itanium : public Abi {
    * @return the size of the array cookie needed
    */
   template <typename T>
-  static constexpr std::size_t arrayCookieLen() noexcept override;
+  static constexpr std::size_t arrayCookieLen() noexcept  __attribute__((pure));
 
   public:
     /**
@@ -65,7 +65,7 @@ class Itanium : public Abi {
      * @throws abi_error  In case the size cannot be determined
      */
     template <typename T>
-    static std::size_t arraySize(T const *p) noexcept override;
+    static std::size_t arraySize(T const *p) noexcept override __attribute__((pure));
 
     /**
      * Return a new array, including cookie if needed, but do NOT call constructors
