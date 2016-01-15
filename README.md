@@ -81,19 +81,21 @@ That being said, full support for 1-dimensional arrays has been added, and the p
 Only one ABI is implemented this far: the [Itanium C++ ABI](https://mentorembedded.github.io/cxx-abi/abi.html), and its restrictions are:
 
 - if the underlying type `T` has a [trivial destructor](http://en.cppreference.com/w/cpp/language/destructor#Trivial_destructor), then you may _not_ use it thus: `value_ptr<T[]>`, but must instead do: `value_ptr<T[n]>` for some compile-time constant `n`.
-  This is because in order for the size to be determined, an _array cookie_ must be present, and for that to happenm, the Itanium ABI demands the constructor _not_ be trivial.
+  This is because in order for the size to be determined, an _array cookie_ must be present, and for that to happen, the Itanium ABI demands the destructor _not_ be trivial.
 
 In the future, we may provide additional ABIs as we find the time (and sources).
 
 #### Should `value_ptr` take an `allocator` argument in addition to a `replicator` and a `deleter`?
 
-Given that we implement stateful `replicator`s, there's no need for an additional `allocator` object: it can be provided on `replicator`'s initialization.
+Given that we implement stateful `handler`s, there's no need for an additional `allocator` object: it can be provided on `handler`'s initialization.
 
 #### This implementation assumes that the `replicator` and `deleter` types are stateless; are these viable assumptions? If not, what policies should apply when they are being copied during a `value_ptr` copy?
 
 Given that the standard smart pointers implement stateful deleters, this doesn't seem too viable an alternative, besides, we can swiftly solve the problem posed in the previous question by making them stateful.
 
 This has been resolved similarly as to how `glibc++` does for `unique_ptr`, ie. with `std::tuple`.
+
+Additionally, we merged both the `replicator`s and `deleter`s into `handler`s.
 
 #### With which, if any, standard smart pointers should this template innately interoperate, and to what degree?
 
@@ -109,13 +111,13 @@ Most obviously, the color is fine.
 
 The `value_ptr` template can be used pretty much like a `unique_ptr` can.
 It supports the methods `reset`, `release`, `get`, `operator*`, and `operator->` with the same semantics as `unique_ptr` exhibits, and it can be safely cast to `bool`.
-Furthermore, if the template type parameter is an array type, it supports both overloads (`const` and non-`const`) of `operator[]`.
+Furthermore, if the template type parameter is an array type (assuming the ABI's restrictions are observed), it supports both overloads (`const` and non-`const`) of `operator[]`.
 
-It additionally supports the `get_replicator` and `get_deleter` methods to obtain or modify the underlying replicator and deleter objects.
+It additionally supports the `get_handler` method to obtain or modify the underlying handler object.
 
 ### Handlers
 
-Deleters are objects having `destroy` and `replicate` methods, and a static `bool slice_safe` member.
+Handlers are objects having `destroy` and `replicate` methods, and a static `bool slice_safe` member.
 
 The `destroy` method takes a pointer to a constant object of type `T` and takes care of its proper destruction and memory reclamation.
 
