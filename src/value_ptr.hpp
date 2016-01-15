@@ -435,17 +435,13 @@ constexpr value_ptr<T, H>::value_ptr(nullptr_t, H2&& h, nullptr_t) noexcept : c{
 
 
 /**
- * Swap function overloads for compatible value_ptrs
+ * Swap function overload for value_ptrs
  *
  * @param x  First value_ptr to swap
  * @param y  Second value_ptr to swap
  */
-template <class T1, class H1, class T2, class H2>
-inline void swap(value_ptr<T1, H1> &x, value_ptr<T2, H2> &y) noexcept { x.swap(y); }
-template <class T1, class H1, class T2, class H2>
-inline void swap(value_ptr<T1, H1> &&x, value_ptr<T2, H2> &y) noexcept { y.swap(std::move(x)); }
-template <class T1, class H1, class T2, class H2>
-inline void swap(value_ptr<T1, H1> &x, value_ptr<T2, H2> &&y) noexcept { x.swap(std::move(y)); }
+template <class T, class H>
+inline void swap(value_ptr<T, H> &x, value_ptr<T, H> &y) noexcept { x.swap(y); }
 
 /**
  * Equality and difference operator overloads for arbitrary value_ptrs
