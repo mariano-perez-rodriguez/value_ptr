@@ -3,6 +3,7 @@
 
 
 #include <type_traits>
+#include <cstddef>
 
 
 /**
@@ -76,7 +77,7 @@ struct is_placement_cloneable {
      * @param R  Type of object the "clone" method returns a pointer to
      */
     template <typename S, typename R, typename ...U>
-    static constexpr auto test(R *(S::*)(void *, U...) const, nullptr_t)
+    static constexpr auto test(R *(S::*)(void *, U...) const, std::nullptr_t)
       -> typename condition<
         sizeof(R) == sizeof(S) &&
         std::is_base_of<R, S>::value &&
@@ -179,7 +180,7 @@ struct is_cloneable {
      * @param R  Type of object the "clone" method returns a pointer to
      */
     template <typename S, typename R, typename ...U>
-    static constexpr auto test(R *(S::*)(U...) const, nullptr_t)
+    static constexpr auto test(R *(S::*)(U...) const, std::nullptr_t)
       -> typename condition<
         sizeof(R) == sizeof(S) &&
         std::is_base_of<R, S>::value &&
