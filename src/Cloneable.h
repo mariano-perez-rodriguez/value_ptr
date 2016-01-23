@@ -79,9 +79,9 @@ struct is_placement_cloneable {
     template <typename S, typename R, typename ...U>
     static constexpr auto test(R *(S::*)(void *, U...) const, std::nullptr_t)
       -> typename condition<
-        sizeof(R) == sizeof(S) &&
-        std::is_base_of<R, S>::value &&
-        std::is_same<R *, decltype(std::declval<S>().clone(nullptr))>::value
+        sizeof(R) == sizeof(T) &&
+        std::is_base_of<R, T>::value &&
+        std::is_same<R *, decltype(std::declval<T>().clone(nullptr))>::value
       >::type;
 
   public:
@@ -182,9 +182,9 @@ struct is_cloneable {
     template <typename S, typename R, typename ...U>
     static constexpr auto test(R *(S::*)(U...) const, std::nullptr_t)
       -> typename condition<
-        sizeof(R) == sizeof(S) &&
-        std::is_base_of<R, S>::value &&
-        std::is_same<R *, decltype(std::declval<S>().clone())>::value
+        sizeof(R) == sizeof(T) &&
+        std::is_base_of<R, T>::value &&
+        std::is_same<R *, decltype(std::declval<T>().clone())>::value
       >::type;
 
   public:
