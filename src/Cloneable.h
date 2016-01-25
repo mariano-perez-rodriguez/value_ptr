@@ -81,7 +81,7 @@ struct is_placement_cloneable {
       -> typename condition<
         sizeof(R) == sizeof(T) &&
         std::is_base_of<R, T>::value &&
-        std::is_same<R *, decltype(std::declval<T>().clone(nullptr))>::value
+        std::is_same<R *, decltype(std::declval<S>().clone(nullptr))>::value
       >::type;
 
   public:
@@ -184,7 +184,7 @@ struct is_cloneable {
       -> typename condition<
         sizeof(R) == sizeof(T) &&
         std::is_base_of<R, T>::value &&
-        std::is_same<R *, decltype(std::declval<T>().clone())>::value
+        std::is_same<R *, decltype(std::declval<S>().clone())>::value
       >::type;
 
   public:
